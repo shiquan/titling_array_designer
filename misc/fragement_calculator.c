@@ -25,20 +25,20 @@ enum ori_type {
 char *out = NULL;
 
 /* check the bam file is coordinated or not, this func was adapt from  bam_mate.c */
-int check_sam_is_sorted(bam_hdr_t *header)
-{
-    if (header == NULL)
-        return 1;
-    // Accept coordinate sorted.
-    fprintf(stderr, "[debug] %s\n", header->text);
-    if ((header->l_text > 3) && (strncmp(header->text, "@HD", 3) == 0)) {
-        char *p;
-        p = strstr(header->text, "\tSO:coordinate");
-	if (p == 0)
-            return 1;
-    }
-    return 0;
-}
+/* int check_sam_is_sorted(bam_hdr_t *header) */
+/* { */
+/*     if (header == NULL) */
+/*         return 1; */
+/*     // Accept coordinate sorted. */
+/*     fprintf(stderr, "[debug] %s\n", header->text); */
+/*     if ((header->l_text > 3) && (strncmp(header->text, "@HD", 3) == 0)) { */
+/*         char *p; */
+/*         p = strstr(header->text, "\tSO:coordinate"); */
+/* 	if (p == 0) */
+/*             return 1; */
+/*     } */
+/*     return 0; */
+/* } */
 
 int cal_fra_core(samFile *in, char *out)
 {
@@ -146,7 +146,7 @@ int main(int argc, char **argv)
 	return -1;
     }
     
-    if ( hts_detect_format(hfile, &in_fmt) ) {
+    if ( hts_detect_format(hfile, &in_fmt) || in_fmt.format == unknown_format) {
 	fprintf(stderr, "failed to detect format : %s\n", fn_in);
 	return -1;
     }
