@@ -119,7 +119,7 @@ int cal_fra_core(samFile *in, char *out)
 
 int usage()
 {
-    
+    fprintf(stderr, "fragement_calculator_pe in.bam [-o out.bed]\n");
     return 1;
 }
 int main(int argc, char **argv)
