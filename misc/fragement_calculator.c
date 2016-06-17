@@ -23,7 +23,7 @@ enum ori_type {
 };
 /* output */
 char *out = NULL;
-
+int output_header = 0;
 /* check the bam file is coordinated or not, this func was adapt from  bam_mate.c */
 /* int check_sam_is_sorted(bam_hdr_t *header) */
 /* { */
@@ -73,7 +73,9 @@ int cal_fra_core(samFile *in, char *out)
     b = bam_init1();
     int flag = ~(BAM_FPAIRED | BAM_FPROPER_PAIR | BAM_FREVERSE | BAM_FMREVERSE | BAM_FDUP | BAM_FREAD1);
     int fmask = ~(1<<12);
-    fprintf(fp, "#chr\tstart\tstop\tlength\tstrand\tseq_orientation\tdistribution\tname\n");
+    if (output_header == 1) {
+	fprintf(fp, "#chr\tstart\tstop\tlength\tstrand\tseq_orientation\tdistribution\tname\n");
+    }
     while (sam_read1(in, header, b)>=0) {
 
 	/* only count paired read, and just stat read1 for simple */
@@ -132,6 +134,8 @@ int main(int argc, char **argv)
 		out = strdup(optarg);
 		break;
 	    case 'h':
+		output_header = 1;
+		break;
 	    case '?':
 	    default:
 		return usage();
