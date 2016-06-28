@@ -143,8 +143,11 @@ int main(int argc, char **argv)
     }
     char *fn_in = argc == optind ? "-" : argv[optind];
     htsFormat in_fmt;
-    samFile *in = NULL;
+    samFile *in = NULL;    
     struct hFILE *hfile = hopen(fn_in, "r");
+    if (!strcmp(fn_in, "-") && !isatty(stdin)) {
+	return usage();
+    }
     if (hfile == NULL) {
 	fprintf(stderr, "failed to open %s : %s\n", fn_in, strerror(errno));
 	return -1;
