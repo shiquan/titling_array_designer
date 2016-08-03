@@ -4,16 +4,21 @@
 // coverage     : coverage value, greater than 0 and smaller than oligo length (window size == 1)
 // window       : windows size for selecting oligos
 // bed          : target regions
-#include<stdio.h>
-#include<stdlib.h>
-#include<string.h>
-#include<zlib.h>
-#include"utils.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <zlib.h>
+#include "utils.h"
+#include "bedutils.h"
 
-#include<htslib/kstring.h>
+extern bedHand_t *bedHand;
+
+#include <htslib/kstring.h>
 #ifndef KSTRINT_INIT
 #define KSTRINT_INIT { 0, 0, 0}
 #endif
+
+#include <htslib/tbx.h>
 
 //#include<khash.h>
 int usage()
@@ -23,17 +28,32 @@ int usage()
     fprintf(stderr, "  -coverage  Coverage value, greater than 0 and smaller than oligo length\n");
     fprintf(stderr, "  -window    Windows size for selecting oligos\n");
     fprintf(stderr, "  -bed       Target regions file in bed format.\n");
-    fprintf(stderr, "  -quiet    Quiet mode, no info or log output.\n");
+    fprintf(stderr, "  -quiet     Quiet mode, no info or log output.\n");
     fprintf(stderr, "oligo.txt.gz should be a bed format like database. Sorted by genome locations and preindex by tabix.\n");
     fprintf(stderr, "Author: shiquan@link.cuhk.edu.hk\n");
     return 1;
 }
+struct region_core {
+    uint32_t start;
+    uint32_t end;
+};
+struct regions_cache {
+    int l, m;
+    struct region_core *a;
+    char *name;
+    uint32_t start;
+    uint32_t end;
+    int32_t gap; // gap between nearest downstream region
+};
 struct args {
     float coverage;
     int window;
     int quiet_mode;
     const char* output_fname;
-    const char* input_fname;    
+    const char* input_fname;
+    const char* bed_fname;
+    struct regions_cache *cache;
+    tbx_t *tbx;
 };
 static struct args args = {
     .coverage = 0,
@@ -41,7 +61,20 @@ static struct args args = {
     .quiet_mode = 0,
     .output_fname = NULL,
     .input_fname = NULL,
+    .bed_fname = NULL,
+    .cache = NULL,
+    .tbx = NULL,
 };
+struct regions_cache *regions_cache_init()
+{
+    struct regions_cache *cache = (struct regions_cache*)malloc(sizeof(struct regions_cache));
+    cache->l = cache->m = 0;
+    cache->a = NULL;
+    cache->name = NULL;
+    cache->start = cache->end = 0;
+    cache->gap = 0;
+    return cache;
+}
 int prase_argv(int argc, char **argv)
 {
     if (argc == 0) {
@@ -72,8 +105,8 @@ int prase_argv(int argc, char **argv)
 	    arg_var = &coverage;
 	else if (strcmp(a, "-window") == 0 && window == 0)
 	    arg_var = &window;
-	else if (strcmp(a, "-bed") == 0 && args.bed == 0)
-	    arg_var = &args.bed;
+	else if (strcmp(a, "-bed") == 0 && args.bed_fname == 0)
+	    arg_var = &args.bed_fname;
 	
 	if (arg_var != 0) {
 	    if (i == argc) {
@@ -124,6 +157,7 @@ int prase_argv(int argc, char **argv)
 	}
     }
     if ( buff.m ) free(buff.s);
+    
     return 0;
 }
 int main(int argc, char **argv)
@@ -142,7 +176,13 @@ int main(int argc, char **argv)
 	    return 0;
 	}
     }
-    load_bed()
-
+    bedaux_t bed = INIT_BED_EMPTY;
+    int ret;
+    int trim = BD_IS_FLANK;
+    int check = BD_CHECK_NO;
+    bedHand->read(args.bed_fname, &bed, 0, 0, &ret, trim);
+    bedaux_t *b = bedHand->merge(&bed, &check);
+    bedHand->clear(&bed, destroy_void);
+    
     return 0;
 }
