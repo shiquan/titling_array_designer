@@ -11,7 +11,7 @@
 #include "utils.h"
 #include "bedutils.h"
 
-extern bedHand_t *bedHand;
+extern bed_handles_t *bed_hand;
 
 #include <htslib/kstring.h>
 #ifndef KSTRINT_INIT
@@ -34,9 +34,10 @@ int usage()
     return 1;
 }
 struct region_core {
-    uint32_t start;
-    uint32_t end;
+    int32_t start;
+    int32_t end;
 };
+
 struct regions_cache {
     int l, m;
     struct region_core *a;
@@ -91,7 +92,7 @@ int prase_argv(int argc, char **argv)
     const char *window = 0;
     for (i = 0; i < argc; ) {
 	const char *a = argv[i++];
-	if ( strcmp(a, "--help") == 0 || strcmp(a, "-h") == 0 ) {
+	if ( strcmp(a, "-help") == 0 || strcmp(a, "-h") == 0 ) {
 	    return 1;
 	} else if (strcmp(a, "-quiet") == 0) {
 	    args.quiet_mode = 1;
@@ -160,6 +161,7 @@ int prase_argv(int argc, char **argv)
     
     return 0;
 }
+
 int main(int argc, char **argv)
 {
     int ret;
@@ -180,9 +182,11 @@ int main(int argc, char **argv)
     int ret;
     int trim = BD_IS_FLANK;
     int check = BD_CHECK_NO;
-    bedHand->read(args.bed_fname, &bed, 0, 0, &ret, trim);
-    bedaux_t *b = bedHand->merge(&bed, &check);
-    bedHand->clear(&bed, destroy_void);
+    bed_hand->read(args.bed_fname, &bed, 0, 0, &ret, trim);
+    bedaux_t *b = bed_hand->merge(&bed, &check);
+    bed_hand->clear(&bed, destroy_void);
     
+    int i;
+    for (i = 0; i < bed.
     return 0;
 }
