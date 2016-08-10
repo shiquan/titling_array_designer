@@ -8,7 +8,7 @@
 #include <zlib.h>
 #include <htslib/kstring.h>
 #include <htslib/tbx.h>
-//#include <khash.h>
+#include <htslib/kseq.h>
 
 #ifndef KSTRINT_INIT
 #define KSTRINT_INIT { 0, 0, 0}
@@ -42,7 +42,6 @@ struct bed_line {
 #define BED_LINE_INIT { -1, 0, 0 }
 
 struct bed_chrom {
-    uint8_t flag;
     int cached; // cached size
     int max; // max allocated memory size
     int i; // for loop, i will be used by bed_read_line()
@@ -51,22 +50,32 @@ struct bed_chrom {
     uint32_t length;    
 };
 
-//typedef struct bed_chrom* bed_chrom_point;
-//KHASH_MAP_INIT_STR(reg, struct bed_chrom_point)
-//typedef kh_reg_t reghash_t;
+// typedef struct bed_chrom* bed_chrom_point;
+// KHASH_MAP_INIT_STR(reg, struct bed_chrom_point)
+// typedef kh_reg_t reghash_t;
 
 struct bedaux {
     int errno;
+    char *fname;
     uint8_t flag;
     int l_names, m_names;
     char **names;
-    int i; // iterator for loop names, used by bed_read_line
-    gzFile fp; // Hold the handler of file. For very big files, read part of data into memory first and merge and read other parts
+    // iterator for loop names, used by bed_read_line
+    int i;
+    // For big file, read first part into memory first and merge and read other parts.
+    gzFile fp; 
+    kstream_t *ks;
+    uint32_t line;
+    // used by bed_fill_bigdata(), if regions are greater than block size, merge cached regions and increase block_size, 
+    uint32_t block_size;
     void *hash;
-    uint32_t regions_ori; // original lines / regions
-    uint32_t regions; // gapped regions in this bed file after operations    
+    // original lines|regions
+    uint32_t regions_ori;
+    // gapped regions in this bed file after operations    
+    uint32_t regions;
     uint64_t length_ori;
-    uint64_t length; // total length of all these chromosomes
+    // total length of all these chromosomes
+    uint64_t length; 
 };
 
 extern struct bedaux *bedaux_init();
@@ -79,14 +88,13 @@ extern struct bedaux *bed_dup(struct bedaux *bed);
 extern int bed_getline_chrom(struct bed_chrom *chrom, struct bed_line *line);
 extern int bed_getline(struct bedaux *bed, struct bed_line *line);
 // read a bed file
-// b == 0 in default. Set b to 1 only if it is 1 based cooridate. If the bed file looks like 1 based, b will change to 1
 extern void bed_read(struct bedaux *bed, const char *fname, int *b);
 // sort
 extern void bed_sort(struct bedaux *bed);
 // merge
 extern void bed_merge(struct bedaux *bed);
 extern struct bedaux *bed_merge_several_files(struct bedaux **beds, int n);
-// flank / trim
+// flank | trim
 extern void bed_flktrim(struct bedaux *bed, int left, int right);
 extern void bed_round(struct bedaux *bed, int length);
 // uniq
