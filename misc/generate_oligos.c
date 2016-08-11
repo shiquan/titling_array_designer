@@ -231,8 +231,8 @@ else if ( (strcmp(a, "-o") == 0 || strcmp(a, "-outdir") == 0) && args.output == 
     args.target_regions = bedaux_init();
 
     // assume input is 0 based bed file.
-    int based_1 = 0;
-    bed_read(args.target_regions, args.input_fname, &based_1);
+    set_based_0();
+    bed_read(args.target_regions, args.input_fname);
 
     // bed will merge auto.
     // for some target regions, usually short than 100, expand to 100 size.

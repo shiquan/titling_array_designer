@@ -11,6 +11,8 @@
 // structure to read some parts of bed file into memory pool, sort and merge cached data first and then load remain 
 // data to reduce the memory cost
 #define MEMPOOL_MAX_LINES  10000
+// if file is greater than FILE_SIZE_LIMIT, just hold the fp handler for bed_read()
+#define FILE_SIZE_LIMIT 100000000
 
 KSORT_INIT_GENERIC(uint64_t)
 
@@ -317,6 +319,17 @@ struct bed_chrom *get_chrom(struct bedaux *bed, const char *name)
 }
 void bed_read(struct bedaux *bed, const char *fname)
 {
+    // if bed size is greater than 100M, or sort already, hold the file handle
+    BGZF* fp = bgzf_open(fname, "r");
+    if (fp == 0)
+	error("failed to open %s : %s.", fname, strerror(errno));
+    bgzf_seek(fp, 0L, SEEK_END);
+    uint64_t size = bgzf_tell(fp);
+    // go back to file begin
+    bgzf_seek(fp, 0L, SEEK_SET);
+    // small file, cached all file
+    if ( size < FILE_SIZE_LIMIT )
+    
 }
 struct bedaux *bed_fork(struct bed_chrom *chrom)
 {
@@ -336,6 +349,42 @@ void bed_sort(struct bedaux *bed)
 void bed_merge(struct bedaux *bed)
 {
 }
+// require all bed files sorted
+struct bedaux *bed_merge_several_bigdata(struct bedaux **beds, int n)
+{
+    
+}
+struct bedaux *bed_merge_several_files(struct bedaux **beds, int n)
+{
+}
+void bed_flktrim(struct bedaux *bed, int left, int right)
+{
+}
+void bed_round(struct bedaux *bed, int length)
+{
+}
+struct bedaux *bed_overlap(struct bedaux *bed)
+{
+}
+struct bedaux *bed_uniq_several_files(struct bedaux **beds, int n)
+{
+}
+struct bedaux *bed_uniq_bigfile(struct bedaux *bed, tbx_t *tbx)
+{
+}
+struct bedaux *bed_find_rough_bigfile(struct bedaux *bed, tbx_t *tbx, int gap_size, int region_limit)
+{
+}
+struct bedaux *bed_diff(struct bedaux *bed1, struct bedaux *bed2)
+{
+}
+struct bedaux *bed_diff_bigfile(struct bedaux *bed, tbx_t *tbx)
+{
+}
+void push_newline(struct bedaux *bed, const char *name, int start, int end)
+{
+}
+
 void bed_save(struct bedaux *bed, const char *fname)
 {
 #ifdef _DEBUG_MODE
