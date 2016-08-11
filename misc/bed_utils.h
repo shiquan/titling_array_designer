@@ -9,6 +9,7 @@
 #include <htslib/kstring.h>
 #include <htslib/tbx.h>
 #include <htslib/kseq.h>
+#include <htslib/bgzf.h>
 
 #ifndef KSTRINT_INIT
 #define KSTRINT_INIT { 0, 0, 0}
@@ -63,7 +64,7 @@ struct bedaux {
     // iterator for loop names, used by bed_read_line
     int i;
     // For big file, read first part into memory first and merge and read other parts.
-    gzFile fp; 
+    BGZF *fp; 
     kstream_t *ks;
     uint32_t line;
     // used by bed_fill_bigdata(), if regions are greater than block size, merge cached regions and increase block_size, 
