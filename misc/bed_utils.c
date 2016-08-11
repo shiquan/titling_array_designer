@@ -36,6 +36,9 @@ void set_based_1()
     based_1 = 1;
 }
 
+#define is_base_1 (based1 == 1)
+#define is_base_0 (based1 == 0)
+
 struct bedaux *bedaux_init()
 {
     struct bedaux *bed = (struct bedaux*)malloc(sizeof(struct bedaux));
@@ -118,7 +121,8 @@ static int prase_string(struct bedaux *bed, kstring_t *string, struct bed_line *
     int nfields = 0;
     int *splits = ksplit(string, 0, &nfields);
     if ( splits == NULL ) return 1;
-    if ( nfields < 2) return 2;
+    if ( nfields < 2)
+	goto malformed_line;
     reghash_type * hash = (reghash_type*)bed->hash;
     khiter_t k;
     k = kh_get(reg, hash, string->s);
@@ -152,7 +156,12 @@ static int prase_string(struct bedaux *bed, kstring_t *string, struct bed_line *
 	k = kh_put(reg, hash, bed->names[id], &ret);
 	kh_val(hash, k) = chrom;
     }
+    free(splits);
     return 0;
+
+  malformed_line:
+    free(splits);
+    return 2;
 }
 
 static void bed_fill(struct bedaux *bed)
@@ -173,25 +182,21 @@ static void bed_fill(struct bedaux *bed)
 	    continue;
 	}
 	if ( string.s[0] == '#' ) continue;
-
-	struct bed_chrom *chrom = kh_val(hash, k);
-	if ( start == end && based_1 == 0) {
+	if ( prase_string(bed, &string, &line) )
+	    goto clean_string;
+	
+	if ( line.start == line->end && is_based_0 ) {
 	    warnings("%s : line %d looks like a 1-based region. Please make sure you use right parameters.");
-	    start--;
+	    line->start--;
 	}
-	    
-	if ( end < beg) { int _pos = beg; beg = end; end = _pos; }
-	if ( chrom->cached == chrom->max ) {
-	    chrom->max = chrom->max == 0 ? 10 : chrom->max << 2;
-	    chrom->a = (uint64_t*)realloc(chrom->a, chrom->max *sizeof(uint64_t));
-	}
-	chrom->a[chrom->cached++] = (uint64_t)start<<32 | (uint32_t)end;
-	bed->region_ori ++;
-	bed->length_ori += end - start;
-	bed->region ++;
 
-      clean_splits:
-	free(splits);
+	push_newline1(bed, &line);
+
+	/* bed->region_ori ++; */
+	/* bed->length_ori += end - start; */
+	/* bed->region ++; */
+
+      clean_string:
 	string.l = 0;
     }
     if ( string.m ) free(string.s);    
@@ -273,68 +278,20 @@ void bed_fill_bigdata(struct bedaux *bed)
 	    continue;
 	}
 	if ( string.s[0] == '#' ) continue;
-	int nfields = 0;
-	int *splits = ksplit(&string, 0, &nfields);
-	if ( splits == NULL ) continue;
-	if ( nfields < 2) goto clean_splits;
-	khiter_t k;
-	k = kh_get(reg, hash, string.s);
-	char *name = string.s + splits[0];
-	char *temp = string.s + splits[1];
-	if ( isdigit(temp[0]) )
-	    start = atoi(temp);
-	if (start == -1) {
-	    warnings("%s : line %d is malfromed. skip ..", bed->fname, bed->line);
-	    goto clean_splits;
-	}
 
-	if ( nfields > 2 ) {
-	    end = atoi(string.s + splits[2]);
-	}
-	if ( end == -1 ) {
-	    end = beg;
-	    beg = beg < 1 ? 0 : beg -1;
-	}
-	khiter_t k;
-	k = kh_get(reg, hash, name);
-	if ( k == kh_get(hash) ) {
-	    int id = get_name_id(bed, name);
-	    if (id == -1) {
-		if ( bed->l_names == bed->m_names ) {
-		    bed->m_names = bed->m_names == 0 ? 2 : bed->m_names << 1;
-		    bed->names = (char**)realloc(bed->names, bed->m_names*sizeof(char*));
-		}
-		id = bed->l_names;
-		bed->names[bed->l_names++] = strdup(name);
-	    }
-	    int ret;	    
-	    struct chrom *chrom = (struct chrom *)malloc(sizeof(struct chrom));
-	    chrom->cached = chrom->max = 0;
-	    chrom->a = 0;
-	    chrom->id = id;
-	    k = kh_put(reg, hash, bed->names[id], &ret);
-	    kh_val(hash, k) = chrom;
-	}
-	struct bed_chrom *chrom = kh_val(hash, k);
-	if ( start == end && based_1 == 0)
+	if ( prase_string(bed, &string, &line) )
+	    goto clean_string;
+	
+	if ( line.start == line->end && is_based_0 ) {
 	    warnings("%s : line %d looks like a 1-based region. Please make sure you use right parameters.");
-	    
-	if ( end < beg) { int _pos = beg; beg = end; end = _pos; }
-	if ( chrom->cached == chrom->max ) {
-	    chrom->max = chrom->max == 0 ? 10 : chrom->max << 2;
-	    chrom->a = (uint64_t*)realloc(chrom->a, chrom->max *sizeof(uint64_t));
+	    line->start--;
 	}
-	chrom->a[chrom->cached++] = (uint64_t)start<<32 | (uint32_t)end;
-	bed->region_ori ++;
-	bed->length_ori += end - start;
-	bed->region ++;
-	bed->length += end - start;
+	push_newline1(bed, &line);
 	if ( bed->region == bed->block_size) {
 	    bed_cache_update(bed);
 	}
 	
-      clean_splits:
-	free(splits);
+      clean_string:
 	string.l = 0;
     }
     if ( string.m ) free(string.s);
@@ -546,9 +503,9 @@ struct bedaux *bed_find_rough_bigfile(struct bedaux *target, htsFile *fp, tbx_t 
 {
     bed_merge(target);
     struct bed_line line = BED_LINE_INIT;
-    struct bed_line last_line = BED_LINE_INIT;
+
     kstring_t string = KSTRING_INIT;
-    
+    struct bedaux *design = bedaux_init();
     while ( bed_getline(target, &line) == 0 ) {
 	// retrieve target in dataset
 	int tid = tbx_name2id(data, target->names[line->chrom_id]);
@@ -556,23 +513,79 @@ struct bedaux *bed_find_rough_bigfile(struct bedaux *target, htsFile *fp, tbx_t 
 	    warnings("Chromosome %s is not found data.", target->names[line->chrom_id]);
 	}
 	hts_itr_t *itr = tbx_itr_queryi(data, tid, line->start, line->end);
-	while ( tbx_itr_next(fp, data, itr, &string) >= 0) {
-	    
+	int n_regions = 0;
+	int left = 0;
+	int right = 0;
+	struct bed_line dl = BED_LINE_INIT;
+	while ( tbx_itr_next(fp, data, itr, &string) >= 0) {	    
+	    prase_string(target, &string, &dl);
+	    if ( dl.start < line.start ) dl.start = line.start;
+	    if ( dl.end > line.end ) dl.end = line.end;
+	    if ( left == 0)
+		left = dl.start;
+	    if ( right < line.end )
+		right = line.end;
+	    push_newline1(design, &dl);
+	    n_regions++;
+	    string.l = 0;
 	}
+
 	// if there are too much gaps in the edges, or	
 	// if no regions in dataset, find nearby regions	
 
-	if (last_line.chrom_id == -1)
-	    copy_line(&last_line, &line);
-	
+	// find nearest left side regions
+        if (n_regions == 0 || left - line.start > gap_size) {
+	    uint32_t start = line.start - gap_size > 0 ? line.start - gap_size : 0;
+	    uint32_t end = line.start;
+	    itr = tbx_itr_queryi(data, tid, start, end);
+	    while ( tbx_itr_next(fp, data, itr, &string) >= 0) {
+		prase_string(target, &string, &dl);
+		if (dl.start < start) dl.start = start;
+		push_newline1(design, &dl);
+	    }
+	    string.l = 0;
+	}
+	// find nearest right side regions
+	if (n_regions == 0 ||  line.end - right > gap_size) {
+	    uint32_t start = line.end;
+	    uint32_t end = line.end + gap_size;
+	    itr = tbx_itr_queryi(data, tid, start, end);
+	    while ( tbx_itr_next(fp, data, itr, &string) >= 0) {
+		prase_string(target, &string, &dl);
+		if (dl.end > end) dl.end = end;
+		push_newline1(design, &dl);
+	    }
+	    string.l = 0;
+	}
     }
-	
+    return design;
 }
 struct bedaux *bed_diff(struct bedaux *bed1, struct bedaux *bed2)
 {
 }
 struct bedaux *bed_diff_bigfile(struct bedaux *bed, tbx_t *tbx)
 {
+}
+void push_newline1(struct bedaux *bed, struct bed_line *l)
+{    
+    if (l->chrom_id > bed->l_names) 
+	error("[push_newline1] chrom is is greater than l_names, %d > %d", line->chrom_id, bed->l_names);
+    if (l->start > l->end) { int temp = l->end; l->end = l->start; l->start = temp; }
+    khiter_t k;
+    reghash_type *hash = (reghash_type*)bed->hash;    
+    k = kh_get(reg, hash, bed->names[l->chrom_id]);
+    struct bed_chrom *chm = kh_val(hash, k);    
+    
+    if (chm->cached == chm->max) {			   
+	chm->max = chm->max == 0 ? 10 : chm->max << 1; 
+	chm->a = (uint64_t*)realloc(chm->a, chm->max * sizeof(uint64_t));
+    }
+    chm->a[chm->cached++] = (uint64_t)l->start << 32 | l->end;
+    bed->flag &= ~bed_bit_merged;
+    bed->flag &= ~bed_bit_sorted;
+    bed->region_ori++;
+    bed->length_ori += line->end - line->start;
+    bed->region++;
 }
 void push_newline(struct bedaux *bed, const char *name, int start, int end)
 {
