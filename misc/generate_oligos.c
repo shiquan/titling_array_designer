@@ -4,12 +4,12 @@
 // Here, I defined probe is a set of oligonucletides. One oligo is a DNA sequence.
 #include <stdio.h>
 #include <stdlib.h>
-#include <sys/type.h>
-#include <sys/stat.h>
+//#include <sys/type.h>
+//#include <sys/stat.h>
 #include <unistd.h>
-#include <htslib/kstring.h>
-#include <htslib/khash.h>
-#include <htslib/faidx.h>
+#include "htslib/kstring.h"
+#include "htslib/khash.h"
+#include "htslib/faidx.h"
 #include "utils.h"
 #include "bed_utils.h"
 
@@ -81,7 +81,7 @@ struct args args = {
     .last_is_empty = 0,
     .string = KSTRING_INIT,
     .line = BED_LINE_INIT,
-    .fai = 0;
+    .fai = 0,
 };
 
 #define OLIGO_LENGTH_MIN 50
@@ -140,7 +140,7 @@ int prase_args(int argc, char **argv)
 	    var = &args.uniq_bed_fname;
 	/* else if ( (strcmp(a, "-d2") == 0 || strcmp(a, "-tolerant_regions") == 0) && args.tolerant_bed_fname == 0) */
 	/*     var = &args.tolerant_bed_fname; */
-else if ( (strcmp(a, "-o") == 0 || strcmp(a, "-outdir") == 0) && args.output == 0 )
+else if ( (strcmp(a, "-o") == 0 || strcmp(a, "-outdir") == 0) && args.output_dir == 0 )
 	    var = &args.output_dir;
 	else if ( (strcmp(a, "-l") == 0 || strcmp(a, "-length") == 0) && length == 0)
 	    var = &length;
@@ -178,7 +178,7 @@ else if ( (strcmp(a, "-o") == 0 || strcmp(a, "-outdir") == 0) && args.output == 
 	    }
 	}
     }
-    if (args.fasta == 0)
+    if (args.fasta_fname == 0)
 	error("Required a reference genome sequence. Use -r/-fasta to specify it.");
 
     if (args.input_bed_fname == 0)
@@ -232,7 +232,7 @@ else if ( (strcmp(a, "-o") == 0 || strcmp(a, "-outdir") == 0) && args.output == 
 
     // assume input is 0 based bed file.
     set_based_0();
-    bed_read(args.target_regions, args.input_fname);
+    bed_read(args.target_regions, args.input_bed_fname);
 
     // bed will merge auto.
     // for some target regions, usually short than 100, expand to 100 size.
@@ -241,7 +241,7 @@ else if ( (strcmp(a, "-o") == 0 || strcmp(a, "-outdir") == 0) && args.output == 
     bed_round(args.target_regions, 100);
 
     // merge two near regions
-    bedaux *bed = bed_dup(args.target_regions);
+    struct bedaux *bed = bed_dup(args.target_regions);
 
     // the target regions usually generated from raw exome or user specified regions. some of them are very close,
     // if two nearby regions are close enough, we could just treat them as one continuous region, and design tiled oligos.
@@ -317,12 +317,12 @@ void titling_design(int cid, int start, int end)
 	    if (start_pos < start) rank = 0; 
 	}
 	int l = 0;
-	char *seq = faidx_fetch_seq(args.fai, args.design_regions.names[cid], start_pos, start_pos+oligo_length-1, &l);
+	char *seq = faidx_fetch_seq(args.fai, args.design_regions->names[cid], start_pos, start_pos+oligo_length-1, &l);
 	if (l < oligo_length) {
 	    if (seq) free(seq);
 	    continue;
 	}
-	ksprintf(&args.string, "%s\t%d\t%d\t%d\t%s\t%d\t%d,\t%d,\t%.2f\t%d\n", args.design_regions.names[cid], start_pos, start_pos + oligo_length, oligo_length, seq, 1, start_pos, start_pos+oligo_length, calculate_GC(seq, oligo_length), rank);
+	ksprintf(&args.string, "%s\t%d\t%d\t%d\t%s\t%d\t%d,\t%d,\t%.2f\t%d\n", args.design_regions->names[cid], start_pos, start_pos + oligo_length, oligo_length, seq, 1, start_pos, start_pos+oligo_length, calculate_GC(seq, oligo_length), rank);
 	
     }
     
@@ -346,7 +346,7 @@ int generate_oligos_core()
 	goto print_line;
     }
     int gap = line->start - last_end;
-    if ( last_is_empty == 1) {
+    if ( args.last_is_empty == 1) {
 	if ( gap > BUBBLE_GAP_MAX ) {
 	    must_design( args.last_chrom_id, args.last_start, args.last_end);
 	} else {
@@ -363,7 +363,7 @@ int generate_oligos_core()
     int length = line->end - line->start;
     if (length < oligo_length) {
 	if ( gap > BUBBLE_GAP_MAX ) {
-	    last_is_empty = 1;
+	    args.last_is_empty = 1;
 	} else {
 	    bubble_design();
 	}
@@ -396,7 +396,7 @@ void generate_oligos()
     if (probe_path.l && probe_path.s[probe_path.l-1] != '/')
 	kputc('/', &probe_path);
     kputs("probes.txt.gz", &probe_path);    
-    BGZF fp = bgzf_open(probe_path.s, "w");
+    BGZF *fp = bgzf_open(probe_path.s, "w");
     free(probe_path.s);    
     if (fp == NULL)
 	error("Failed to write %s : %s.", probe_path.s, strerror(errno));
@@ -406,7 +406,7 @@ void generate_oligos()
     kputs("##filetype=probe\n", &header);    
     ksprintf(&header,"##length=%d\n", oligo_length);
     kputs("#chrom\tstart\tend\tseq_length\tsequence\tn_block\tstarts\tends\tGC_content\trank\n", &header);
-    bgzf_write(fp, h, strlen(h));
+    bgzf_write(fp, &header, strlen(h));
     free(header.s);
     
     while (1) {	
@@ -443,9 +443,9 @@ void export_summary_reports()
 }
 void clean_memory()
 {
-    bedaux_destroy(args.target_regions);    
-    bedaux_destroy(args.design_regions);
-    bedaux_destroy(args.predict_regions);
+    bed_destroy(args.target_regions);    
+    bed_destroy(args.design_regions);
+    bed_destroy(args.predict_regions);
     if (args.data_required ) tbx_destroy(args.uniq_data_tbx);
     fai_destroy(args.fai);
     free(args.string.s);

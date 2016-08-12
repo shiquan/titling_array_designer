@@ -1,12 +1,11 @@
 #include <stdio.h>
 #include <errno.h>
 #include <stdlib.h>
-#include <htslib/hts.h>
-#include <htslib/khash.h>
-#include <htslib/kseq.h>
-#include <htslib/ksort.h>
 #include "utils.h"
 #include "bed_utils.h"
+#include "htslib/hts.h"
+#include "htslib/khash.h"
+#include "htslib/ksort.h"
 
 // for very large file, there might be a memory overflow problem to keep all raw data, so here design a read-and-hold
 // structure to read some parts of bed file into memory pool, sort and merge cached data first and then load remain 
@@ -23,8 +22,11 @@ KHASH_MAP_INIT_STR(reg, bed_chrom_point)
 typedef kh_reg_t reghash_type;
 
 // read file handler
-KSTRING_INIT(BGZF*, bgzf_read, 8193)
+KSTREAM_INIT(BGZF*, bgzf_read, 8193);
 
+#ifndef KSTRING_INIT
+#define KSTRING_INIT { 0, 0, 0}
+#endif
 static int based_1 = 0;
 
 void set_based_0()
@@ -36,13 +38,12 @@ void set_based_1()
     based_1 = 1;
 }
 
-#define is_base_1 (based1 == 1)
-#define is_base_0 (based1 == 0)
+#define is_base_1 (based_1 == 1)
+#define is_base_0 (based_1 == 0)
 
 struct bedaux *bedaux_init()
 {
     struct bedaux *bed = (struct bedaux*)malloc(sizeof(struct bedaux));
-    bed->errno = 0;
     bed->flag = bed_bit_empty;
     bed->l_names = bed->m_names = 0;
     bed->names = 0;
@@ -55,7 +56,7 @@ struct bedaux *bedaux_init()
     bed->line = 0;
     bed->fname = NULL;
     bed->block_size = MEMPOOL_MAX_LINES;
-    Return bed;
+    return bed;
 }
 struct bed_chrom *bedchrom_init()
 {
@@ -67,7 +68,8 @@ struct bed_chrom *bedchrom_init()
     chrom->i = 0;
     return chrom;
 }
-void bedaux_destory(struct bedaux *file)
+
+void bed_destory(struct bedaux *file)
 {
     khiter_t k;
     int i;
@@ -76,18 +78,17 @@ void bedaux_destory(struct bedaux *file)
 	char *name = file->names[i];
 	k = kh_get(reg, hash, name);
 	free(name);
-	if (k == kh_end(reg)) {
+	if (k == kh_end(hash)) {
 	    continue;
 	} else {
-	    struct bed_chrom * chrom = kh_val(reghash, k);
+	    struct bed_chrom * chrom = kh_val(hash, k);
 	    free(chrom->a);
 	    free(chrom);
 	    kh_del(reg, hash, k);
 	}
     }
     kh_destroy(reg, hash);
-    if (file->flag & bed_bit_cached)
-	bgzf_close(file.fp);
+    
     free(file);    
 }
 int get_name_id(struct bedaux *bed, const char *name)
@@ -106,10 +107,10 @@ struct bed_chrom *get_chrom(struct bedaux *bed, const char *name)
 	return NULL;
     }
     khint_t k;
-    reghash_type *hash = (reghash_type*)file->hash;
+    reghash_type *hash = (reghash_type*)bed->hash;
     k = kh_get(reg, hash, name);
     if (k == kh_end(hash)) return NULL;
-    struct chrom *chrom = kh_val(hash, k);
+    struct bed_chrom *chrom = kh_val(hash, k);
     return chrom;
 }
 // return
@@ -126,21 +127,21 @@ static int prase_string(struct bedaux *bed, kstring_t *string, struct bed_line *
     reghash_type * hash = (reghash_type*)bed->hash;
     khiter_t k;
     k = kh_get(reg, hash, string->s);
-    char *name = string.s + splits[0];
-    char *temp = string.s + splits[1];
+    char *name = string->s + splits[0];
+    char *temp = string->s + splits[1];
     if ( isdigit(temp[0]) )
-	start = atoi(temp);
-    if (start == -1)
+	line->start = atoi(temp);
+    if (line->start == -1)
 	return 2;
     if ( nfields > 2 ) {
-	end = atoi(string.s + splits[2]);
+	line->end = atoi(string->s + splits[2]);
     }
-    if ( end == -1 ) {
-	end = beg;
-	beg = beg < 1 ? 0 : beg -1;
+    if ( line->end == -1 ) {
+	line->end = line->beg;
+	line->start = line->start < 1 ? 0 : line->start -1;
     }	    
     k = kh_get(reg, hash, name);
-    if ( k == kh_get(hash) ) {
+    if ( k == kh_end(hash) ) {
 	int id = get_name_id(bed, name);
 	if (id == -1) {
 	    if ( bed->l_names == bed->m_names ) {
@@ -185,30 +186,27 @@ static void bed_fill(struct bedaux *bed)
 	if ( prase_string(bed, &string, &line) )
 	    goto clean_string;
 	
-	if ( line.start == line->end && is_based_0 ) {
+	if ( line.start == line.end && is_based_0 ) {
 	    warnings("%s : line %d looks like a 1-based region. Please make sure you use right parameters.");
-	    line->start--;
+	    --line.start;
 	}
 
 	push_newline1(bed, &line);
-
-	/* bed->region_ori ++; */
-	/* bed->length_ori += end - start; */
-	/* bed->region ++; */
-
       clean_string:
 	string.l = 0;
     }
-    if ( string.m ) free(string.s);    
+    if ( string.m ) free(string.s);
+    bgzf_close(bed->fp);
+    ks_destroy(bed->ks);
 }
-static void chrom_sort(struct chrom *chrom)
+static void chrom_sort(struct bed_chrom *chrom)
 {
     ks_introsort(uint64_t, chrom->cached, chrom->a);
 }
-static void chrom_merge(struct chrom *chrom)
+static void chrom_merge(struct bed_chrom *chrom)
 {
     // assume bed is sorted before merge
-    //chrom_sort(chrom);
+    // chrom_sort(chrom);
     int i;
     uint64_t *b = (uint64_t*)malloc(chrom->cached * sizeof(uint64_t));
     uint32_t start_last = 0;
@@ -295,6 +293,8 @@ void bed_fill_bigdata(struct bedaux *bed)
 	string.l = 0;
     }
     if ( string.m ) free(string.s);
+    bgzf_close(bed->fp);
+    ks_destroy(bed->ks);    
 }
 void bed_read(struct bedaux *bed, const char *fname)
 {
@@ -370,7 +370,7 @@ struct bedaux *bed_dup(struct bedaux *_bed)
     for (i = 0; i < bed->l_names; ++i) {
 	k = kh_get(reg, hash, bed->names[i]);
 	k1 = kh_get(reg, hash1, bed->names[i]);
-	if ( k1 = kh_end(hash1) ) continue;
+	if ( k1 == kh_end(hash1) ) continue;
 	if ( k == kh_end(hash)) {
 	    int ret;
 	    k = kh_put(reg, hash, bed->names[i], &ret);	    
@@ -393,7 +393,7 @@ int bed_getline_chrom(struct bed_chrom *chm, struct bed_line *line)
 int bed_getline(struct bedaux *bed, struct bed_line *line)
 {
     while ( bed->i < bed->l_names ) {
-	struct chrom *chm = get_chrom(bed, bed->names[i]);
+	struct bed_chrom *chm = get_chrom(bed, bed->names[i]);
 	if (bed_getline_chrom(chm, line) == 1)
 	    bed->i ++;
 	else
@@ -408,7 +408,7 @@ void bed_sort(struct bedaux *bed)
     
     int i;
     for (i = 0; i < bed->l_names; ++i) {
-	struct chrom *chm = get_chrom(bed, bed->names[i]);
+	struct bed_chrom *chm = get_chrom(bed, bed->names[i]);
 	if (chm == NULL)
 	    continue;
 	chrom_sort(chm);
@@ -422,7 +422,7 @@ void bed_merge(struct bedaux *bed)
     bed_sort(bed);
     int i;
     for (i = 0; i < bed->l_names; ++i) {
-	struct chrom *chm = get_chrom(bed, bed->names[i]);
+	struct bed_chrom *chm = get_chrom(bed, bed->names[i]);
 	if (chm == NULL)
 	    continue;
 	chrom_merge(chm);
@@ -442,7 +442,7 @@ void bed_flktrim(struct bedaux *bed, int left, int right)
     int i, j;
     uint64_t length = 0;
     for (i = 0; i < bed->l_names; ++i) {
-	struct chrom *chm = get_chrom(bed, bed->names[i]);
+	struct bed_chrom *chm = get_chrom(bed, bed->names[i]);
 	if (chm == NULL)
 	    continue;
 	for (j = 0; j < chm->cached; ++j) {
@@ -465,7 +465,7 @@ void bed_round(struct bedaux *bed, int length)
     uint64_t length = 0;
     int i, j;
     for (i = 0; i < bed->l_names; ++i) {
-	struct chrom *chm = get_chrom(bed, bed->names[i]);
+	struct bed_chrom *chm = get_chrom(bed, bed->names[i]);
 	if (chm == NULL)
 	    continue;
 	for (j = 0; j < chm->cached; ++j) {
@@ -606,7 +606,7 @@ void bed_save(struct bedaux *bed, const char *fname)
     for (i = 0; i < bed->l_names; ++i) {
 	k = kh_get(reg, hash, bed->names[i]);
 	if ( k != kh_end(hash) ) {
-	    struct chrom * chrom = kh_val(hash, k);
+	    struct bed_chrom * chrom = kh_val(hash, k);
 	    if ( chrom == NULL)
 		continue;
 	    for (j = 0; j < chrom->cached; ++j)

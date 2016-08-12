@@ -4,12 +4,13 @@
 
 #ifndef BED_UTILS_HEADER
 #define BED_UTILS_HEADER
+#include <stdio.h>
 #include <stdlib.h>
 #include <zlib.h>
-#include <htslib/kstring.h>
-#include <htslib/tbx.h>
-#include <htslib/kseq.h>
-#include <htslib/bgzf.h>
+#include "htslib/kstring.h"
+#include "htslib/tbx.h"
+#include "htslib/kseq.h"
+#include "htslib/bgzf.h"
 
 #ifndef KSTRINT_INIT
 #define KSTRINT_INIT { 0, 0, 0}
@@ -56,7 +57,6 @@ struct bed_chrom {
 // typedef kh_reg_t reghash_t;
 
 struct bedaux {
-    int errno;
     char *fname;
     uint8_t flag;
     int l_names, m_names;
@@ -79,8 +79,10 @@ struct bedaux {
     uint64_t length; 
 };
 
+extern void set_based_0();
+extern void set_based_1();
 extern struct bedaux *bedaux_init();
-extern void bedaux_destroy(struct bedaux *bed);
+extern void bed_destroy(struct bedaux *bed);
 extern struct bed_chrom * get_chrom(struct bedaux *bed, const char *name);
 // fork a bedaux structure from bed_chrom
 extern struct bedaux *bed_fork(struct bed_chrom);
