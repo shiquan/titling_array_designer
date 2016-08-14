@@ -26,11 +26,11 @@ typedef kh_reg_t reghash_type;
 #endif
 static int based_1 = 0;
 
-void set_based_0()
+void set_based_0(void)
 {
     based_1 = 0;
 }
-void set_based_1()
+void set_based_1(void)
 {
     based_1 = 1;
 }
@@ -68,6 +68,7 @@ struct bed_chrom *bedchrom_init()
 
 void bed_destroy(struct bedaux *file)
 {
+    if (file == NULL) return;
     khiter_t k;
     int i;
     reghash_type *hash = (reghash_type*)file->hash;
@@ -138,8 +139,8 @@ static int prase_string(struct bedaux *bed, kstring_t *string, struct bed_line *
 	line->start = line->start < 1 ? 0 : line->start -1;
     }	    
     k = kh_get(reg, hash, name);
+    int id = get_name_id(bed, name);
     if ( k == kh_end(hash) ) {
-	int id = get_name_id(bed, name);
 	if (id == -1) {
 	    if ( bed->l_names == bed->m_names ) {
 		bed->m_names = bed->m_names == 0 ? 2 : bed->m_names << 1;
@@ -154,6 +155,7 @@ static int prase_string(struct bedaux *bed, kstring_t *string, struct bed_line *
 	k = kh_put(reg, hash, bed->names[id], &ret);
 	kh_val(hash, k) = chrom;
     }
+    line->chrom_id = id;
     free(splits);
     return 0;
 
@@ -164,9 +166,9 @@ static int prase_string(struct bedaux *bed, kstring_t *string, struct bed_line *
 
 static int bed_fill(struct bedaux *bed)
 {
-    if (bed->flag & bed_bit_empty) return 1;
-    if (bed->flag ^ bed_bit_cached) return 1;
-    
+  //if (bed->flag & bed_bit_empty) return 1;
+  //if (bed->flag ^ bed_bit_cached) return 1;
+
     reghash_type *hash = (reghash_type*)bed->hash;
     kstring_t string = KSTRING_INIT;
     int dret;
@@ -175,7 +177,7 @@ static int bed_fill(struct bedaux *bed)
 	int start = -1;
 	int end = -1;
 	bed->line++;
-	if ( string.l == 0 || string.s[0] ) {
+	if ( string.l == 0 || string.s[0] == '\n' ) {
 	    warnings("%s : line %d is empty. skip ..", bed->fname, bed->line);
 	    continue;
 	}
@@ -304,12 +306,14 @@ int bed_read(struct bedaux *bed, const char *fname)
 	error("failed to open %s : %s.", fname, strerror(errno));
     bgzf_seek(bed->fp, 0L, SEEK_END);
     uint64_t size = bgzf_tell(bed->fp);
-    // go back to file begin
+    debug_print("size : %lu", size);
+    // go back to file begin    
     bgzf_seek(bed->fp, 0L, SEEK_SET);
     bed->ks = ks_init(bed->fp);
+    bed->fname = fname;
     // remove empty flag
     bed->flag &= ~bed_bit_empty;
-    // small file, cached whole file
+   // small file, cached whole file
     if ( size < FILE_SIZE_LIMIT ) {
 	bed_fill(bed);
 	bed->flag &= ~bed_bit_cached;
@@ -357,6 +361,7 @@ struct bedaux *bed_dup(struct bedaux *_bed)
     bed->fname = _bed->fname;
     bed->l_names = _bed->l_names;
     bed->m_names = _bed->m_names;
+
     int i;
     if ( bed->m_names ) {
 	bed->names = (char**)malloc(bed->m_names*sizeof(char*));
@@ -393,15 +398,13 @@ int bed_getline_chrom(struct bed_chrom *chm, struct bed_line *line)
 }
 int bed_getline(struct bedaux *bed, struct bed_line *line)
 {
-    debug_print("i : %d, l_names : %d", bed->i, bed->l_names);
-    while ( bed->i < bed->l_names ) {
+    for ( ; bed->i < bed->l_names; bed->i++ ) {
 	struct bed_chrom *chm = get_chrom(bed, bed->names[bed->i]);
-	if (bed_getline_chrom(chm, line) == 1)
-	    bed->i ++;
-	else
-	    return 0;
+	if ( bed_getline_chrom(chm, line) == 0)
+	  break;
     }
-    return 1;    
+    if (bed->i == bed->l_names) return 1;
+    return 0;    
 }
 int bed_sort(struct bedaux *bed)
 {
@@ -578,8 +581,8 @@ struct bedaux *bed_diff_bigfile(struct bedaux *bed, tbx_t *tbx)
 }
 void push_newline1(struct bedaux *bed, struct bed_line *l)
 {    
-    if (l->chrom_id > bed->l_names) 
-	error("[push_newline1] chrom is is greater than l_names, %d > %d", l->chrom_id, bed->l_names);
+    if (l->chrom_id == -1 || l->chrom_id > bed->l_names) 
+	error("[push_newline1] chrom is not found, id : %d, lname : %d", l->chrom_id, bed->l_names);
     if (l->start > l->end) { int temp = l->end; l->end = l->start; l->start = temp; }
     khiter_t k;
     reghash_type *hash = (reghash_type*)bed->hash;    
@@ -595,6 +598,7 @@ void push_newline1(struct bedaux *bed, struct bed_line *l)
     bed->flag &= ~bed_bit_sorted;
     bed->regions_ori++;
     bed->length_ori += l->end - l->start;
+    bed->length += l->end - l->start;
     bed->regions++;
 }
 void push_newline(struct bedaux *bed, const char *name, int start, int end)
@@ -606,6 +610,7 @@ int bed_save(struct bedaux *bed, const char *fname)
 #ifdef _DEBUG_MODE
     debug_print("[%s]", __func__);
 #endif
+    if ( bed == NULL) return 1;
     if ( bed->flag & bed_bit_empty ) return 1;
     if ( bed->flag & bed_bit_cached ) bed_fill(bed);
     

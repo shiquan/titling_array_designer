@@ -4,7 +4,6 @@
 // Here, I defined probe is a set of oligonucletides. One oligo is a DNA sequence.
 #include <stdio.h>
 #include <stdlib.h>
-//#include <sys/type.h>
 #include <sys/stat.h>
 #include <unistd.h>
 #include "htslib/kstring.h"
@@ -211,7 +210,7 @@ int prase_args(int argc, char **argv)
 	args.oligo_length = atoi(length);
 	if (args.oligo_length < 40 && args.oligo_length > 0) {
 	    if (quiet_mode == 0)
-		LOG_print("Oligo length is too short, <40. Force set to %db.", OLIGO_LENGTH_MIN);
+		LOG_print("Oligo length is too short, < 40. Force set to %db.", OLIGO_LENGTH_MIN);
 	    args.oligo_length = OLIGO_LENGTH_MIN;
 	} else if (args.oligo_length > 100) {
 	    if (quiet_mode == 0)
@@ -237,6 +236,7 @@ int prase_args(int argc, char **argv)
 
     // assume input is 0 based bed file.
     set_based_0();
+    
     bed_read(args.target_regions, args.input_bed_fname);
 
     // bed will merge auto.
@@ -265,7 +265,7 @@ int prase_args(int argc, char **argv)
     } else {
 	args.design_regions = bed_dup(bed);
     }
-
+    debug_print ("design : %p", args.design_regions);
     // sometimes, uniq regions in database are very small and will break a contine region into several small regions.
     // merge these small regions into one piece if the gap between them is shorter than flank_uniq_length*2.
     // defined the flank_uniq_length based on the insert gap size of bubble oligos.
@@ -314,7 +314,7 @@ void titling_design(int cid, int start, int end)
     float mid = (float)n_parts/2;
 
     int i;
-    for (i = 0; i < n_parts; ) {
+    for (i = 0; i < n_parts; ++i) {
 	int rank = 1;
 	int start_pos = start + i *part;
 	start_pos = start_pos - offset;
@@ -365,7 +365,6 @@ int generate_oligos_core()
     }
     
   design:
-
     if ( bed_getline(args.design_regions, line) )
 	return 1;
     
@@ -396,8 +395,7 @@ void generate_oligos()
 	args.fai = fai_load(args.fasta_fname);
     }
     struct bed_line line = BED_LINE_INIT;
-    int oligo_length = args.oligo_length == 0 ? OLIGO_LENGTH_MIN : args.oligo_length;
-
+    
     // create probe file in the out directary
     kstring_t probe_path = KSTRING_INIT;
     if ( args.output_dir)
@@ -410,12 +408,13 @@ void generate_oligos()
     if (fp == NULL)
 	error("Failed to write %s : %s.", probe_path.s, strerror(errno));
 
+    int oligo_length = args.oligo_length == 0 ? OLIGO_LENGTH_MAX : args.oligo_length;
     // write header to probe file
     kstring_t header = KSTRING_INIT;
     kputs("##filetype=probe\n", &header);    
-    ksprintf(&header,"##length=%d\n", oligo_length);
+    ksprintf(&header,"##max_length=%d\n", oligo_length);
     kputs("#chrom\tstart\tend\tseq_length\tsequence\tn_block\tstarts\tends\tGC_content\trank\n", &header);
-    bgzf_write(fp, &header, header.l);
+    bgzf_write(fp, header.s, header.l);
     free(header.s);
     
     while (1) {	
