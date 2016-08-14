@@ -10,9 +10,13 @@
 #include "htslib/kstring.h"
 #include "htslib/khash.h"
 #include "htslib/faidx.h"
+#include "htslib/kseq.h"
 #include "utils.h"
 #include "bed_utils.h"
 
+#ifndef KSTRING_INIT
+#define KSTRING_INIT { 0, 0, 0 }
+#endif
 struct args {
     // species reference genome, retrieve oligos from this reference
     const char *fasta_fname;
@@ -41,7 +45,7 @@ struct args {
     // required a uniq database, data_required == 0 if uniq_bed_fname and tolerant_bed_fname are empty
     int data_required;
     int variants_skip_required;
-    tbx_t *uniq_data_tbx;
+    //tbx_t *uniq_data_tbx;
     int gap_size;
     // oligo coverage 
     int depth;
@@ -71,11 +75,10 @@ struct args args = {
     .oligo_length = 50,
     .target_regions = 0,
     .design_regions = 0,
-    .uniq_data_tbx = 0,
+    //.uniq_data_tbx = 0,
     .gap_size = 200,
     .must_design = 0,
     .depth = 2,
-    .last_is_empty = -1,
     .last_start = 0,
     .last_end = 0,
     .last_is_empty = 0,
@@ -140,7 +143,7 @@ int prase_args(int argc, char **argv)
 	    var = &args.uniq_bed_fname;
 	/* else if ( (strcmp(a, "-d2") == 0 || strcmp(a, "-tolerant_regions") == 0) && args.tolerant_bed_fname == 0) */
 	/*     var = &args.tolerant_bed_fname; */
-else if ( (strcmp(a, "-o") == 0 || strcmp(a, "-outdir") == 0) && args.output_dir == 0 )
+	else if ( (strcmp(a, "-o") == 0 || strcmp(a, "-outdir") == 0) && args.output_dir == 0 )
 	    var = &args.output_dir;
 	else if ( (strcmp(a, "-l") == 0 || strcmp(a, "-length") == 0) && length == 0)
 	    var = &length;
@@ -189,11 +192,11 @@ else if ( (strcmp(a, "-o") == 0 || strcmp(a, "-outdir") == 0) && args.output_dir
 	    LOG_print("No uniq regions datasets specified.");
     } else {
 	args.data_required = 1;
-	args.uniq_data_tbx = tbx_index_load(args.uniq_bed_fname);	
-	if ( args.uniq_data_tbx == 0) {
-	    error_print("Failed to load tabix index of %s.", args.uniq_bed_fname);
-	    return 1;
-	}
+	//args.uniq_data_tbx = tbx_index_load(args.uniq_bed_fname);	
+	//if ( args.uniq_data_tbx == 0) {
+	//    error_print("Failed to load tabix index of %s.", args.uniq_bed_fname);
+	//    return 1;
+	//}
     }
 
     if (args.common_variants_fname == 0) {
@@ -249,10 +252,14 @@ else if ( (strcmp(a, "-o") == 0 || strcmp(a, "-outdir") == 0) && args.output_dir
     bed_flktrim(bed, trim_region_length, trim_region_length);
 
     if ( args.data_required == 1) {
+	htsFile *fp = hts_open(args.uniq_bed_fname, "r");
+	tbx_t *tbx = tbx_index_load(args.uniq_bed_fname);
 	// this function will find the overlap regions of target and uniq dataset for design. And more, for exactly
 	// non-overlaped regions, means hang regions without any overlap with uniq database, will find the most nearest
 	// uniq regions for design if possible
-	args.design_regions = bed_find_rough_bigfile(bed, args.uniq_data_tbx, args.gap_size, OLIGO_LENGTH_MAX);
+	args.design_regions = bed_find_rough_bigfile(bed, fp, tbx, args.gap_size, OLIGO_LENGTH_MAX);
+	hts_close(fp);
+	tbx_destroy(tbx);
     } else {
 	args.design_regions = bed_dup(bed);
     }
@@ -275,10 +282,11 @@ float calculate_GC(const char *seq, int length)
 // for much design regions, usually very short, try to use short oligos for better oligos
 void must_design(int cid, int start, int end)
 {
-    if (args.must_design == 0) return;
+    if (args.must_design == 0)
+	return;
     // expand the small regions into longer one, the size of new region should consider of length of oligo and depth.
     // the algrithm here to generate oligos based on depth is by set oligo start from the 1/n part of previous oligos
-    return titling_design(cid, start, end);
+    titling_design(cid, start, end);
 }
 // bubble design is one oligo cover two regions within a tolerant gap. There will be some fork sequence in the gap to make
 // sure the bubble structure is constructed. but here only use blocks to remember to stand for bubbles. fork sequences will
@@ -345,7 +353,7 @@ int generate_oligos_core()
 	}
 	goto print_line;
     }
-    int gap = line->start - last_end;
+    int gap = line->start - args.last_end;
     if ( args.last_is_empty == 1) {
 	if ( gap > BUBBLE_GAP_MAX ) {
 	    must_design( args.last_chrom_id, args.last_start, args.last_end);
@@ -361,14 +369,14 @@ int generate_oligos_core()
 	return 1;
     
     int length = line->end - line->start;
-    if (length < oligo_length) {
+    if (length < args.oligo_length) {
 	if ( gap > BUBBLE_GAP_MAX ) {
 	    args.last_is_empty = 1;
 	} else {
 	    bubble_design();
 	}
     } else {
-	titling_design();
+	titling_design(line->chrom_id, line->start, line->end);
     }
     
   print_line:	
@@ -406,7 +414,7 @@ void generate_oligos()
     kputs("##filetype=probe\n", &header);    
     ksprintf(&header,"##length=%d\n", oligo_length);
     kputs("#chrom\tstart\tend\tseq_length\tsequence\tn_block\tstarts\tends\tGC_content\trank\n", &header);
-    bgzf_write(fp, &header, strlen(h));
+    bgzf_write(fp, &header, header.l);
     free(header.s);
     
     while (1) {	
@@ -446,7 +454,7 @@ void clean_memory()
     bed_destroy(args.target_regions);    
     bed_destroy(args.design_regions);
     bed_destroy(args.predict_regions);
-    if (args.data_required ) tbx_destroy(args.uniq_data_tbx);
+    //if (args.data_required ) tbx_destroy(args.uniq_data_tbx);
     fai_destroy(args.fai);
     free(args.string.s);
 }

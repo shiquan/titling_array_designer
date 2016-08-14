@@ -18,6 +18,9 @@
 
 #define MEMPOOL_LINE 10000 // todo: memory management
 
+// read file handler
+KSTREAM_INIT(BGZF*, bgzf_read, 8193);
+
 // flag of bed_file struct
 // bits offset rule : right first
 //                           bed file is empty or not
@@ -85,13 +88,13 @@ extern struct bedaux *bedaux_init();
 extern void bed_destroy(struct bedaux *bed);
 extern struct bed_chrom * get_chrom(struct bedaux *bed, const char *name);
 // fork a bedaux structure from bed_chrom
-extern struct bedaux *bed_fork(struct bed_chrom);
+extern struct bedaux *bed_fork(struct bed_chrom *, const char *name, int flag);
 extern struct bedaux *bed_dup(struct bedaux *bed);
 // read line from chrom structure, return 1 if reach the end, -1 for error, 0 for normal
 extern int bed_getline_chrom(struct bed_chrom *chrom, struct bed_line *line);
 extern int bed_getline(struct bedaux *bed, struct bed_line *line);
 // read a bed file
-extern void bed_read(struct bedaux *bed, const char *fname, int *b);
+extern void bed_read(struct bedaux *bed, const char *fname);
 // sort
 extern void bed_sort(struct bedaux *bed);
 // merge
@@ -111,7 +114,7 @@ extern struct bedaux *bed_uniq_bigfile(struct bedaux *bed, tbx_t *tbx);
 // gap_size for check the nearby regions, if the closest region of target is far than gap size, ignore it.
 // region_limit for generate the length of nearby regions, if find a close enough region, the length of this region
 // will cap to region_limit.
-extern struct bedaux *bed_find_rough_bigfile(struct bedaux *bed, tbx_t *tbx, int gap_size, int region_limit);
+extern struct bedaux *bed_find_rough_bigfile(struct bedaux *bed, htsFile *fp, tbx_t *tbx, int gap_size, int region_limit);
 // diff
 extern struct bedaux *bed_diff(struct bedaux *bed1, struct bedaux *bed2);
 extern struct bedaux *bed_diff_bigfile(struct bedaux *bed, tbx_t *tbx);

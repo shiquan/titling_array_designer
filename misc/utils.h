@@ -50,24 +50,24 @@
 	errno = 0;\
     }while(0)
 
-#define error(line, ...) do						\
+#define error(_line, ...) do						\
     {									\
-	fprintf(stderr, "[error] [func: %s, line: %d] " line "\n", __FUNCTION__, __LINE__, ##__VA_ARGS__); \
+	fprintf(stderr, "[error] [func: %s, line: %d] " _line "\n", __FUNCTION__, __LINE__, ##__VA_ARGS__); \
 	errno = 0;							\
 	exit(EXIT_FAILURE);						\
     }while(0)
 
-#define error_print(line, ...) do						\
+#define error_print(_line, ...) do					\
     {									\
-	fprintf(stderr, "[error] [func: %s, line: %d] " line "\n", __FUNCTION__, __LINE__, ##__VA_ARGS__); \
+	fprintf(stderr, "[error] [func: %s, line: %d] " _line "\n", __FUNCTION__, __LINE__, ##__VA_ARGS__); \
     }while(0)
 
-#define warnings(line, ...) do						\
+#define warnings(_line, ...) do						\
     {									\
 	if (errno == 0) {						\
-	    fprintf(stderr, "[warnings] " line "\n", ##__VA_ARGS__);	\
+	    fprintf(stderr, "[warnings] " _line "\n", ##__VA_ARGS__);	\
 	} else {							\
-	    fprintf(stderr, "[warnings] Errno: %s. " line "\n", str_errno(), ##__VA_ARGS__); \
+	    fprintf(stderr, "[warnings] Errno: %s. " _line "\n", str_errno(), ##__VA_ARGS__); \
 	}								\
     }while(0)
 
@@ -75,12 +75,12 @@
 	fprintf(stderr, "[ ** DEBUG ** func: %s, line: %d ] " line "\n", __FUNCTION__, __LINE__, ##__VA_ARGS__); \
     } while(0)
 
-#define LOG_print(line, ...) do {\
+#define LOG_print(_line, ...) do {\
 	time_t second;\
 	time(&second);\
 	char _buff[100];							\
 	strftime (_buff, 100, "%Y-%m-%d %H:%M:%S", localtime (&second));	\
-	fprintf(stderr, "[%s] " line "\n", _buff, ##__VA_ARGS__); \
+	fprintf(stderr, "[%s] " _line "\n", _buff, ##__VA_ARGS__); \
     } while(0)
 
 #define BE_SMART_STRING "Please DONOT post this error message on the forum or copy it into the emails. Try to figure out this issue by youself by reading the log information carefully and checking you input arguments."

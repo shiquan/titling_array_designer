@@ -21,9 +21,6 @@ typedef struct bed_chrom* bed_chrom_point;
 KHASH_MAP_INIT_STR(reg, bed_chrom_point)
 typedef kh_reg_t reghash_type;
 
-// read file handler
-KSTREAM_INIT(BGZF*, bgzf_read, 8193);
-
 #ifndef KSTRING_INIT
 #define KSTRING_INIT { 0, 0, 0}
 #endif
@@ -137,7 +134,7 @@ static int prase_string(struct bedaux *bed, kstring_t *string, struct bed_line *
 	line->end = atoi(string->s + splits[2]);
     }
     if ( line->end == -1 ) {
-	line->end = line->beg;
+	line->end = line->start;
 	line->start = line->start < 1 ? 0 : line->start -1;
     }	    
     k = kh_get(reg, hash, name);
@@ -185,9 +182,9 @@ static void bed_fill(struct bedaux *bed)
 	if ( string.s[0] == '#' ) continue;
 	if ( prase_string(bed, &string, &line) )
 	    goto clean_string;
-	
-	if ( line.start == line.end && is_based_0 ) {
-	    warnings("%s : line %d looks like a 1-based region. Please make sure you use right parameters.");
+
+	if ( line.start == line.end && is_base_0 ) {
+	    warnings("line %d looks like a 1-based region. Please make sure you use right parameters.", bed->line);
 	    --line.start;
 	}
 
@@ -221,7 +218,7 @@ static void chrom_merge(struct bed_chrom *chrom)
 	    end_last = end;
 	    continue;
 	}
-	if ( end_last >= beg) {
+	if ( end_last >= start) {
 	    if ( end_last < end )
 		end_last = end;	    
 	} else {
@@ -267,6 +264,7 @@ void bed_fill_bigdata(struct bedaux *bed)
     reghash_type *hash = (reghash_type*)bed->hash;
     kstring_t string = KSTRING_INIT;
     int dret;
+    struct bed_line line = BED_LINE_INIT;
     while ( ks_getuntil(bed->ks, 2, &string, &dret) >= 0) {
 	int start = -1;
 	int end = -1;
@@ -280,12 +278,12 @@ void bed_fill_bigdata(struct bedaux *bed)
 	if ( prase_string(bed, &string, &line) )
 	    goto clean_string;
 	
-	if ( line.start == line->end && is_based_0 ) {
+	if ( line.start == line.end && is_base_0 ) {
 	    warnings("%s : line %d looks like a 1-based region. Please make sure you use right parameters.");
-	    line->start--;
+	    line.start--;
 	}
 	push_newline1(bed, &line);
-	if ( bed->region == bed->block_size) {
+	if ( bed->regions == bed->block_size) {
 	    bed_cache_update(bed);
 	}
 	
@@ -306,7 +304,7 @@ void bed_read(struct bedaux *bed, const char *fname)
     uint64_t size = bgzf_tell(bed->fp);
     // go back to file begin
     bgzf_seek(bed->fp, 0L, SEEK_SET);
-    bed->ks = ks_init(fp);
+    bed->ks = ks_init(bed->fp);
     // remove empty flag
     bed->flag &= ~bed_bit_empty;
     // small file, cached whole file
@@ -314,7 +312,7 @@ void bed_read(struct bedaux *bed, const char *fname)
 	bed_fill(bed);
 	bed->flag &= ~bed_bit_cached;
 	// file is empty, set empty flag
-	if ( bed->cached == 0 )
+	if ( bed->length == 0 )
 	    bed->flag |= bed_bit_empty;	
 	return;
     }
@@ -384,7 +382,7 @@ int bed_getline_chrom(struct bed_chrom *chm, struct bed_line *line)
 {
     if (chm->i >= chm->cached)
 	return 1;
-    line->id = chm->id;
+    line->chrom_id = chm->id;
     line->start = chm->a[chm->i] >> 32;
     line->end = (uint32_t)chm->a[chm->i];
     chm->i++;
@@ -393,7 +391,7 @@ int bed_getline_chrom(struct bed_chrom *chm, struct bed_line *line)
 int bed_getline(struct bedaux *bed, struct bed_line *line)
 {
     while ( bed->i < bed->l_names ) {
-	struct bed_chrom *chm = get_chrom(bed, bed->names[i]);
+	struct bed_chrom *chm = get_chrom(bed, bed->names[bed->i]);
 	if (bed_getline_chrom(chm, line) == 1)
 	    bed->i ++;
 	else
@@ -460,7 +458,7 @@ void bed_flktrim(struct bedaux *bed, int left, int right)
     }
     bed->length = length;
 }
-void bed_round(struct bedaux *bed, int length)
+void bed_round(struct bedaux *bed, int round_length)
 {
     uint64_t length = 0;
     int i, j;
@@ -471,8 +469,8 @@ void bed_round(struct bedaux *bed, int length)
 	for (j = 0; j < chm->cached; ++j) {
 	    uint32_t start = chm->a[j]>>32;
 	    uint32_t end = (uint32_t)chm->a[j];
-	    if (end - start >= length) continue;
-	    int offset = length - (end -start);
+	    if (end - start >= round_length) continue;
+	    int offset = round_length - (end -start);
 	    start = start - offset/2;
 	    end = end + offset/2 + (offset & 1);  // add the extra base to the end
 	    chm->a[j] = (uint64_t)start << 32|end;
@@ -508,11 +506,11 @@ struct bedaux *bed_find_rough_bigfile(struct bedaux *target, htsFile *fp, tbx_t 
     struct bedaux *design = bedaux_init();
     while ( bed_getline(target, &line) == 0 ) {
 	// retrieve target in dataset
-	int tid = tbx_name2id(data, target->names[line->chrom_id]);
+	int tid = tbx_name2id(data, target->names[line.chrom_id]);
 	if (tid == -1) {
-	    warnings("Chromosome %s is not found data.", target->names[line->chrom_id]);
+	    warnings("Chromosome %s is not found data.", target->names[line.chrom_id]);
 	}
-	hts_itr_t *itr = tbx_itr_queryi(data, tid, line->start, line->end);
+	hts_itr_t *itr = tbx_itr_queryi(data, tid, line.start, line.end);
 	int n_regions = 0;
 	int left = 0;
 	int right = 0;
@@ -569,7 +567,7 @@ struct bedaux *bed_diff_bigfile(struct bedaux *bed, tbx_t *tbx)
 void push_newline1(struct bedaux *bed, struct bed_line *l)
 {    
     if (l->chrom_id > bed->l_names) 
-	error("[push_newline1] chrom is is greater than l_names, %d > %d", line->chrom_id, bed->l_names);
+	error("[push_newline1] chrom is is greater than l_names, %d > %d", l->chrom_id, bed->l_names);
     if (l->start > l->end) { int temp = l->end; l->end = l->start; l->start = temp; }
     khiter_t k;
     reghash_type *hash = (reghash_type*)bed->hash;    
@@ -583,9 +581,9 @@ void push_newline1(struct bedaux *bed, struct bed_line *l)
     chm->a[chm->cached++] = (uint64_t)l->start << 32 | l->end;
     bed->flag &= ~bed_bit_merged;
     bed->flag &= ~bed_bit_sorted;
-    bed->region_ori++;
-    bed->length_ori += line->end - line->start;
-    bed->region++;
+    bed->regions_ori++;
+    bed->length_ori += l->end - l->start;
+    bed->regions++;
 }
 void push_newline(struct bedaux *bed, const char *name, int start, int end)
 {
@@ -610,7 +608,7 @@ void bed_save(struct bedaux *bed, const char *fname)
 	    if ( chrom == NULL)
 		continue;
 	    for (j = 0; j < chrom->cached; ++j)
-		fprintf(fp, "%s\t%u\t%u\n", bed->names[i], bed->a[j] >> 32, (uint32_t)bed->a[j]);
+		fprintf(fp, "%s\t%u\t%u\n", bed->names[i], (uint32_t)(chrom->a[j] >> 32), (uint32_t)chrom->a[j]);
 	}
     }
     fclose(fp);
