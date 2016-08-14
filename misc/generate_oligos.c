@@ -363,7 +363,9 @@ int generate_oligos_core()
 	    bubble_design();
 	}
     }
-  design:	
+    
+  design:
+
     if ( bed_getline(args.design_regions, line) )
 	return 1;
     

@@ -393,6 +393,7 @@ int bed_getline_chrom(struct bed_chrom *chm, struct bed_line *line)
 }
 int bed_getline(struct bedaux *bed, struct bed_line *line)
 {
+    debug_print("i : %d, l_names : %d", bed->i, bed->l_names);
     while ( bed->i < bed->l_names ) {
 	struct bed_chrom *chm = get_chrom(bed, bed->names[bed->i]);
 	if (bed_getline_chrom(chm, line) == 1)
