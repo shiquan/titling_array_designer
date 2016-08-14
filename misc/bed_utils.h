@@ -82,31 +82,33 @@ struct bedaux {
     uint64_t length; 
 };
 
-extern void set_based_0();
-extern void set_based_1();
-extern struct bedaux *bedaux_init();
-extern void bed_destroy(struct bedaux *bed);
-extern struct bed_chrom * get_chrom(struct bedaux *bed, const char *name);
+extern void set_based_0() __attribute__ ((__noreturn__));
+extern void set_based_1() __attribute__ ((__noreturn__));
+extern struct bedaux *bedaux_init() __attribute__ ((__warn_unused_result__));
+
+extern void bed_destroy(struct bedaux *bed) __attribute__ ((__noreturn__));
+
+extern struct bed_chrom * get_chrom(struct bedaux *bed, const char *name) __attribute__((__warn_unused_result__));
 // fork a bedaux structure from bed_chrom
-extern struct bedaux *bed_fork(struct bed_chrom *, const char *name, int flag);
-extern struct bedaux *bed_dup(struct bedaux *bed);
+extern struct bedaux *bed_fork(struct bed_chrom *, const char *name, int flag) __attribute__((__warn_unused_result__));
+extern struct bedaux *bed_dup(struct bedaux *bed) __attribute__((__warn_unused_result__));
 // read line from chrom structure, return 1 if reach the end, -1 for error, 0 for normal
-extern int bed_getline_chrom(struct bed_chrom *chrom, struct bed_line *line);
-extern int bed_getline(struct bedaux *bed, struct bed_line *line);
+extern int bed_getline_chrom(struct bed_chrom *chrom, struct bed_line *line) __attribute__((__warn_unused_result__));
+extern int bed_getline(struct bedaux *bed, struct bed_line *line) __attribute__ ((__warn_unused_result__));
 // read a bed file
-extern void bed_read(struct bedaux *bed, const char *fname);
+extern int bed_read(struct bedaux *bed, const char *fname);
 // sort
-extern void bed_sort(struct bedaux *bed);
+extern int bed_sort(struct bedaux *bed);
 // merge
-extern void bed_merge(struct bedaux *bed);
-extern struct bedaux *bed_merge_several_files(struct bedaux **beds, int n);
+extern int bed_merge(struct bedaux *bed);
+extern struct bedaux *bed_merge_several_files(struct bedaux **beds, int n) __attribute__((__warn_unused_result__));
 // flank | trim
-extern void bed_flktrim(struct bedaux *bed, int left, int right);
-extern void bed_round(struct bedaux *bed, int length);
+extern void bed_flktrim(struct bedaux *bed, int left, int right) __attribute__((__noreturn__));
+extern void bed_round(struct bedaux *bed, int length) __attribute__((__noreturn__));
 // uniq
-extern struct bedaux *bed_overlap(struct bedaux *bed);
-extern struct bedaux *bed_uniq_several_files(struct bedaux **beds, int n);
-extern struct bedaux *bed_uniq_bigfile(struct bedaux *bed, tbx_t *tbx);
+extern struct bedaux *bed_overlap(struct bedaux *bed) __attribute__ ((__warn_unused_result__));
+extern struct bedaux *bed_uniq_several_files(struct bedaux **beds, int n) __attribute__((__warn_unused_result__));
+extern struct bedaux *bed_uniq_bigfile(struct bedaux *bed, tbx_t *tbx) __attribute__((__warn_unused_result__));
 
 // bed_find_rough_bigfile() is an experimental function to find uniq regions and if no uniq region then find
 // most nearby regions.
@@ -114,16 +116,17 @@ extern struct bedaux *bed_uniq_bigfile(struct bedaux *bed, tbx_t *tbx);
 // gap_size for check the nearby regions, if the closest region of target is far than gap size, ignore it.
 // region_limit for generate the length of nearby regions, if find a close enough region, the length of this region
 // will cap to region_limit.
-extern struct bedaux *bed_find_rough_bigfile(struct bedaux *bed, htsFile *fp, tbx_t *tbx, int gap_size, int region_limit);
+extern struct bedaux *bed_find_rough_bigfile(struct bedaux *bed, htsFile *fp, tbx_t *tbx, int gap_size, int region_limit) __attribute__((__warn_unused_result__));
 // diff
-extern struct bedaux *bed_diff(struct bedaux *bed1, struct bedaux *bed2);
-extern struct bedaux *bed_diff_bigfile(struct bedaux *bed, tbx_t *tbx);
+extern struct bedaux *bed_diff(struct bedaux *bed1, struct bedaux *bed2) __attribute__((__warn_unused_result__));
+extern struct bedaux *bed_diff_bigfile(struct bedaux *bed, tbx_t *tbx) __attribute__((__warn_unused_result__));
 
 // if bed is raw, just add new line at the end of it
 // if bed is sorted, new line will kept in cooridinate,
 // if bed is merged, new line will merge into it. 
-extern void push_newline(struct bedaux *bed, const char *name, int start, int end);
+extern void push_newline(struct bedaux *bed, const char *name, int start, int end) __attribute__ ((__noreturn__));
+extern void push_newline1(struct bedaux *bed, struct bed_line *l) __attribute__((__noreturn__));
 
-extern void bed_save(struct bedaux *bed, const char *fname);
+extern int bed_save(struct bedaux *bed, const char *fname);
 
 #endif

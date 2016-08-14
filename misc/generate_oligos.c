@@ -5,7 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 //#include <sys/type.h>
-//#include <sys/stat.h>
+#include <sys/stat.h>
 #include <unistd.h>
 #include "htslib/kstring.h"
 #include "htslib/khash.h"
@@ -100,6 +100,8 @@ const int trim_region_length = -50;
 // in case small gaps in the uniq regions
 const int flank_uniq_length = 10;
 const int trim_uniq_length = -10;
+
+void titling_design(int cid, int start, int end) __attribute__((__noreturn__));
 
 int usage()
 {
@@ -282,11 +284,11 @@ float calculate_GC(const char *seq, int length)
 // for much design regions, usually very short, try to use short oligos for better oligos
 void must_design(int cid, int start, int end)
 {
-    if (args.must_design == 0)
-	return;
-    // expand the small regions into longer one, the size of new region should consider of length of oligo and depth.
-    // the algrithm here to generate oligos based on depth is by set oligo start from the 1/n part of previous oligos
-    titling_design(cid, start, end);
+    if (args.must_design == 1) {	
+	// expand the small regions into longer one, the size of new region should consider of length of oligo and depth.
+	// the algrithm here to generate oligos based on depth is by set oligo start from the 1/n part of previous oligos
+	titling_design(cid, start, end);
+    }
 }
 // bubble design is one oligo cover two regions within a tolerant gap. There will be some fork sequence in the gap to make
 // sure the bubble structure is constructed. but here only use blocks to remember to stand for bubbles. fork sequences will
@@ -330,11 +332,8 @@ void titling_design(int cid, int start, int end)
 	    if (seq) free(seq);
 	    continue;
 	}
-	ksprintf(&args.string, "%s\t%d\t%d\t%d\t%s\t%d\t%d,\t%d,\t%.2f\t%d\n", args.design_regions->names[cid], start_pos, start_pos + oligo_length, oligo_length, seq, 1, start_pos, start_pos+oligo_length, calculate_GC(seq, oligo_length), rank);
-	
-    }
-    
-    
+	ksprintf(&args.string, "%s\t%d\t%d\t%d\t%s\t%d\t%d,\t%d,\t%.2f\t%d\n", args.design_regions->names[cid], start_pos, start_pos + oligo_length, oligo_length, seq, 1, start_pos, start_pos+oligo_length, calculate_GC(seq, oligo_length), rank);	
+    }        
 }
 // format of oligos file.
 // chr, start(0-based), end, seq_length, sequences, n_blocks, blocks(seperated by commas, sometime the sequences are consist of different parts from reference sequences), gc percent, type, rank, score
@@ -449,12 +448,11 @@ void export_summary_reports()
 
     free(path.s);
 }
-void clean_memory()
+void clean_memory(void)
 {
-    bed_destroy(args.target_regions);    
+    bed_destroy(args.target_regions);
     bed_destroy(args.design_regions);
-    bed_destroy(args.predict_regions);
-    //if (args.data_required ) tbx_destroy(args.uniq_data_tbx);
+    bed_destroy(args.predict_regions);    
     fai_destroy(args.fai);
     free(args.string.s);
 }
@@ -463,7 +461,7 @@ int main(int argc, char **argv)
     if (argc == 0)
 	return usage();
     
-    if ( prase_args(argc, argv) != 0 ) 
+    if ( prase_args(--argc, ++argv) != 0 ) 
 	return 1;
     
     generate_oligos();
@@ -474,4 +472,3 @@ int main(int argc, char **argv)
     
     return 0;
 }
-

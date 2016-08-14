@@ -66,7 +66,7 @@ struct bed_chrom *bedchrom_init()
     return chrom;
 }
 
-void bed_destory(struct bedaux *file)
+void bed_destroy(struct bedaux *file)
 {
     khiter_t k;
     int i;
@@ -162,10 +162,10 @@ static int prase_string(struct bedaux *bed, kstring_t *string, struct bed_line *
     return 2;
 }
 
-static void bed_fill(struct bedaux *bed)
+static int bed_fill(struct bedaux *bed)
 {
-    if (bed->flag & bed_bit_empty) return;
-    if (bed->flag ^ bed_bit_cached) return;
+    if (bed->flag & bed_bit_empty) return 1;
+    if (bed->flag ^ bed_bit_cached) return 1;
     
     reghash_type *hash = (reghash_type*)bed->hash;
     kstring_t string = KSTRING_INIT;
@@ -195,6 +195,7 @@ static void bed_fill(struct bedaux *bed)
     if ( string.m ) free(string.s);
     bgzf_close(bed->fp);
     ks_destroy(bed->ks);
+    return 0;
 }
 static void chrom_sort(struct bed_chrom *chrom)
 {
@@ -244,7 +245,7 @@ void bed_cache_update(struct bedaux *bed)
     int i;
     khiter_t k;
     reghash_type *hash = (reghash_type*)bed->hash;
-    bed->region = 0;
+    bed->regions = 0;
     bed->length = 0;
     for (i = 0; i < bed->l_names; ++i) {
 	char *name = bed->names[i];
@@ -252,15 +253,15 @@ void bed_cache_update(struct bedaux *bed)
 	if (k == kh_end(hash)) continue;
 	struct bed_chrom *chrom = kh_val(hash, k);
 	chrom_merge(chrom);
-	bed->region += chrom->cached;
+	bed->regions += chrom->cached;
 	bed->length += chrom->length;
     }
-    bed->block_size = bed->region + MEMPOOL_MAX_LINES;    
+    bed->block_size = bed->regions + MEMPOOL_MAX_LINES;    
 }
-void bed_fill_bigdata(struct bedaux *bed)
+int bed_fill_bigdata(struct bedaux *bed)
 {
-    if (bed->flag & bed_bit_empty) return;
-    if (bed->flag ^ bed_bit_cached) return;    
+    if (bed->flag & bed_bit_empty) return 1;
+    if (bed->flag ^ bed_bit_cached) return 1;    
     reghash_type *hash = (reghash_type*)bed->hash;
     kstring_t string = KSTRING_INIT;
     int dret;
@@ -279,7 +280,7 @@ void bed_fill_bigdata(struct bedaux *bed)
 	    goto clean_string;
 	
 	if ( line.start == line.end && is_base_0 ) {
-	    warnings("%s : line %d looks like a 1-based region. Please make sure you use right parameters.");
+	    warnings("line %d looks like a 1-based region. Please make sure you use right parameters.", bed->line);
 	    line.start--;
 	}
 	push_newline1(bed, &line);
@@ -292,9 +293,10 @@ void bed_fill_bigdata(struct bedaux *bed)
     }
     if ( string.m ) free(string.s);
     bgzf_close(bed->fp);
-    ks_destroy(bed->ks);    
+    ks_destroy(bed->ks);
+    return 0;
 }
-void bed_read(struct bedaux *bed, const char *fname)
+int bed_read(struct bedaux *bed, const char *fname)
 {
     // if bed size is greater than 100M, or sort already, hold the file handle
     bed->fp = bgzf_open(fname, "r");
@@ -314,11 +316,12 @@ void bed_read(struct bedaux *bed, const char *fname)
 	// file is empty, set empty flag
 	if ( bed->length == 0 )
 	    bed->flag |= bed_bit_empty;	
-	return;
+	return 1;
     }
 
     // for huge file, just hold the handler
     bed->flag |= bed_bit_cached;
+    return 0;
 }
 struct bedaux *bed_fork(struct bed_chrom *chrom, const char *name, int flag)
 {
@@ -399,10 +402,10 @@ int bed_getline(struct bedaux *bed, struct bed_line *line)
     }
     return 1;    
 }
-void bed_sort(struct bedaux *bed)
+int bed_sort(struct bedaux *bed)
 {
     // sorted already
-    if ( bed->flag & bed_bit_sorted ) return;
+    if ( bed->flag & bed_bit_sorted ) return 1;
     
     int i;
     for (i = 0; i < bed->l_names; ++i) {
@@ -412,11 +415,12 @@ void bed_sort(struct bedaux *bed)
 	chrom_sort(chm);
     }
     bed->flag |= bed_bit_sorted;
+    return 0;
 }
-void bed_merge(struct bedaux *bed)
+int bed_merge(struct bedaux *bed)
 {
     if ( bed->flag & bed_bit_merged)
-	return;
+	return 1;
     bed_sort(bed);
     int i;
     for (i = 0; i < bed->l_names; ++i) {
@@ -426,14 +430,16 @@ void bed_merge(struct bedaux *bed)
 	chrom_merge(chm);
     }
     bed->flag |= bed_bit_merged;
+    return 0;
 }
 // require all bed files sorted
 struct bedaux *bed_merge_several_bigdata(struct bedaux **beds, int n)
 {
-    
+    return NULL;
 }
 struct bedaux *bed_merge_several_files(struct bedaux **beds, int n)
 {
+    return NULL;
 }
 void bed_flktrim(struct bedaux *bed, int left, int right)
 {
@@ -482,12 +488,15 @@ void bed_round(struct bedaux *bed, int round_length)
 }
 struct bedaux *bed_overlap(struct bedaux *bed)
 {
+    return NULL;
 }
 struct bedaux *bed_uniq_several_files(struct bedaux **beds, int n)
 {
+    return NULL;
 }
 struct bedaux *bed_uniq_bigfile(struct bedaux *bed, tbx_t *tbx)
 {
+    return NULL;
 }
 static void copy_line(struct bed_line *dest, struct bed_line *line)
 {
@@ -560,9 +569,11 @@ struct bedaux *bed_find_rough_bigfile(struct bedaux *target, htsFile *fp, tbx_t 
 }
 struct bedaux *bed_diff(struct bedaux *bed1, struct bedaux *bed2)
 {
+    return NULL;
 }
 struct bedaux *bed_diff_bigfile(struct bedaux *bed, tbx_t *tbx)
 {
+    return NULL;
 }
 void push_newline1(struct bedaux *bed, struct bed_line *l)
 {    
@@ -586,15 +597,15 @@ void push_newline1(struct bedaux *bed, struct bed_line *l)
     bed->regions++;
 }
 void push_newline(struct bedaux *bed, const char *name, int start, int end)
-{
+{    
 }
 
-void bed_save(struct bedaux *bed, const char *fname)
+int bed_save(struct bedaux *bed, const char *fname)
 {
 #ifdef _DEBUG_MODE
     debug_print("[%s]", __func__);
 #endif
-    if ( bed->flag & bed_bit_empty ) return;
+    if ( bed->flag & bed_bit_empty ) return 1;
     if ( bed->flag & bed_bit_cached ) bed_fill(bed);
     
     FILE *fp = fopen(fname, "w");
@@ -612,4 +623,5 @@ void bed_save(struct bedaux *bed, const char *fname)
 	}
     }
     fclose(fp);
+    return 0;
 }
