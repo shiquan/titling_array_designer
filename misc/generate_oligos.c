@@ -62,6 +62,7 @@ struct args {
     // current line cache
     struct bed_line line;
     faidx_t *fai;
+    kstring_t commands;
 };
 
 struct args args = {
@@ -84,12 +85,17 @@ struct args args = {
     .last_is_empty = 0,
     .string = KSTRING_INIT,
     .line = BED_LINE_INIT,
+    .commands = KSTRING_INIT,
     .fai = 0,
 };
 
 static int oligo_length_minimal = 50;
 static int oligo_length_maxmal = 90;
 
+static char *get_version(void)
+{
+    return OLIGOS_VERSION;
+}
 void set_oligo_length_min(int length)
 {
     oligo_length_minimal = length;
@@ -154,10 +160,10 @@ static int quiet_mode = 0;
 int prase_args(int argc, char **argv)
 {
     int i;
-    kstring_t buff = KSTRING_INIT;
+
     for (i = 0; i < argc; ++i) {
-	if ( i ) kputc(' ', &buff);
-	kputs(argv[i], &buff);
+	if ( i ) kputc(' ', &args.commands);
+	kputs(argv[i], &args.commands;
     }
     const char *length = 0;
     const char *depth = 0;
@@ -201,7 +207,7 @@ int prase_args(int argc, char **argv)
 
     if (quiet_mode == 0) {
 	LOG_print("The program was compiled at %s %s by %s.", __DATE__, __TIME__, getenv("USER"));
-	LOG_print("Args: %s", buff.s);
+	LOG_print("Args: %s", args.commands.s);
     }
     if (args.output_dir != 0) {
 	struct stat s = { 0 };
@@ -483,6 +489,8 @@ void generate_oligos()
     kstring_t header = KSTRING_INIT;
     kputs("##filetype=probe\n", &header);    
     ksprintf(&header,"##max_length=%d\n", oligo_length);
+    ksprintf(&header,"##generate_oligos Version=%s\n", get_version());
+    ksprintf(&header,"##Command=%s\n", args.commands.s);
     kputs("#chrom\tstart\tend\tseq_length\tsequence\tn_block\tstarts\tends\trepeat_ratio\tGC_content\trank\n", &header);
     bgzf_write(fp, header.s, header.l);
     free(header.s);
