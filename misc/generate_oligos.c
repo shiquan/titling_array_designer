@@ -193,6 +193,7 @@ int prase_args(int argc, char **argv)
 	}
 	if ( strcmp(a, "-must_design") == 0) {
 	    args.must_design = 1;
+	    continue;
 	}
 	error_print("Unknown parameter : %s. Use -h to for more help.", a);
 	return 1;

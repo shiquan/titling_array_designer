@@ -321,7 +321,7 @@ int bed_read(struct bedaux *bed, const char *fname)
     // go back to file begin    
     bgzf_seek(bed->fp, 0L, SEEK_SET);
     bed->ks = ks_init(bed->fp);
-    bed->fname = fname;
+    bed->fname = (char*)fname;
     // remove empty flag
     bed->flag &= ~bed_bit_empty;
    // small file, cached whole file
