@@ -316,6 +316,39 @@ float calculate_GC(const char *seq, int length)
 	if (seq[i] == 'G' || seq[i] == 'C' || seq[i] == 'g' || seq[i] == 'c') j++;
     return (float)j/length;
 }
+float repeat_ratio(char *seq, int length)
+{
+    int i, j;
+    for (i = 0, j = 0; i < length; ++i) {
+	switch(seq[i]) {
+	    case 'A' :
+		break;
+	    case 'T':
+		break;
+	    case 'G':
+		break;
+	    case 'C':
+		break;
+	    case 'a':
+		seq[i] = 'A', j++;
+		break;
+	    case 't':
+		seq[i] = 'T', j++;
+		break;
+	    case 'g':
+		seq[i] = 'G', j++;
+		break;
+	    case 'c':
+		seq[i] = 'C', j++;
+		break;
+	    case 'N':
+	    default:
+		error("There is a N is seq %s.", seq);
+		break;
+	}
+    }
+    return (float)j/length;
+}
 // for much design regions, usually very short, try to use short oligos for better oligos
 void must_design(int cid, int start, int end)
 {
@@ -367,7 +400,9 @@ void titling_design(int cid, int start, int end)
 	    if (seq) free(seq);
 	    continue;
 	}
-	ksprintf(&args.string, "%s\t%d\t%d\t%d\t%s\t%d\t%d,\t%d,\t%.2f\t%d\n", args.design_regions->names[cid], start_pos, start_pos + oligo_length, oligo_length, seq, 1, start_pos, start_pos+oligo_length, calculate_GC(seq, oligo_length), rank);	
+	float repeat = repeat_ratio(seq, oligo_length);
+	float gc = calculate_GC(seq, oligo_length);
+	ksprintf(&args.string, "%s\t%d\t%d\t%d\t%s\t%d\t%d,\t%d,\t%.2f\t%.2f\t%d\n", args.design_regions->names[cid], start_pos, start_pos + oligo_length, oligo_length, seq, 1, start_pos, start_pos+oligo_length, repeat, gc, rank);	
     }        
 }
 // format of oligos file.
@@ -448,7 +483,7 @@ void generate_oligos()
     kstring_t header = KSTRING_INIT;
     kputs("##filetype=probe\n", &header);    
     ksprintf(&header,"##max_length=%d\n", oligo_length);
-    kputs("#chrom\tstart\tend\tseq_length\tsequence\tn_block\tstarts\tends\tGC_content\trank\n", &header);
+    kputs("#chrom\tstart\tend\tseq_length\tsequence\tn_block\tstarts\tends\trepeat_ratio\tGC_content\trank\n", &header);
     bgzf_write(fp, header.s, header.l);
     free(header.s);
     
