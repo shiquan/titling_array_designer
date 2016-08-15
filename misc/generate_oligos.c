@@ -48,7 +48,7 @@ struct args {
     //tbx_t *uniq_data_tbx;
     int gap_size;
     // oligo coverage 
-    int depth;
+    float depth;
     // Memory cache for output probes
     kstring_t string;
     // last chromosome id, default is -1
@@ -258,7 +258,7 @@ int prase_args(int argc, char **argv)
 	}
     }
     if (depth != 0) {
-	args.depth = atoi(depth);
+	args.depth = atof(depth);
 	if (args.depth == 0) {
 	    args.depth = 2;
 	    if (quiet_mode == 0) {
@@ -382,7 +382,7 @@ void titling_design(int cid, int start, int end)
 {
     int length = end - start;
     int oligo_length = args.oligo_length == 0 ? length < SMALL_REGION ? oligo_length_minimal : oligo_length_maxmal : args.oligo_length;
-    int n_parts = length/oligo_length == 0 ? args.depth : length/oligo_length * args.depth;
+    float n_parts = (float)length/oligo_length < 1 ? args.depth : (float)length/oligo_length * args.depth;
     int part = length/n_parts;
     int offset =  part > oligo_length ? 0 : (oligo_length - part)/2;
     float mid = (float)n_parts/2;
