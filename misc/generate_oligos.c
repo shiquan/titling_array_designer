@@ -86,21 +86,45 @@ struct args args = {
     .fai = 0,
 };
 
-#define OLIGO_LENGTH_MIN 50
-#define OLIGO_LENGTH_MAX 90
+static int oligo_length_minimal = 50;
+static int oligo_length_maxmal = 90;
+
+void set_oligo_length_min(int length)
+{
+    oligo_length_minimal = length;
+}
+void set_oligo_length_max(int length)
+{
+    oligo_length_maxmal = length;
+}
 
 #define BUBBLE_GAP_MAX 30
 #define BUBBLE_GAP_MIN 5
 
 #define SMALL_REGION 200
 // in case two regions come very close
-const int flank_region_length = 50;
-const int trim_region_length = -50;
-// in case small gaps in the uniq regions
-const int flank_uniq_length = 10;
-const int trim_uniq_length = -10;
+static int flank_region_length = 50;
+static int trim_region_length = -50;
+void set_flank_trim_regions_length(int length)
+{
+    if ( length < 0 )
+	length = -1 * length;
+    flank_region_length = length;
+    trim_region_length = -1 * length;    
+}
 
-void titling_design(int cid, int start, int end) __attribute__((__noreturn__));
+// in case small gaps in the uniq regions
+static int flank_uniq_length = 10;
+static int trim_uniq_length = -10;
+void set_flank_trim_uniq_length(int length)
+{
+    if ( length < 0 )
+	length = -1 * length;
+    flank_uniq_length = length;
+    trim_uniq_length = -1 * length;
+}
+
+void titling_design(int cid, int start, int end);
 
 int usage()
 {
@@ -142,8 +166,6 @@ int prase_args(int argc, char **argv)
 	    var = &args.input_bed_fname;
 	else if ( (strcmp(a, "-u") == 0 || strcmp(a, "-uniq_regions") == 0) && args.uniq_bed_fname == 0 )
 	    var = &args.uniq_bed_fname;
-	/* else if ( (strcmp(a, "-d2") == 0 || strcmp(a, "-tolerant_regions") == 0) && args.tolerant_bed_fname == 0) */
-	/*     var = &args.tolerant_bed_fname; */
 	else if ( (strcmp(a, "-o") == 0 || strcmp(a, "-outdir") == 0) && args.output_dir == 0 )
 	    var = &args.output_dir;
 	else if ( (strcmp(a, "-l") == 0 || strcmp(a, "-length") == 0) && length == 0)
@@ -210,19 +232,21 @@ int prase_args(int argc, char **argv)
 	args.oligo_length = atoi(length);
 	if (args.oligo_length < 40 && args.oligo_length > 0) {
 	    if (quiet_mode == 0)
-		LOG_print("Oligo length is too short, < 40. Force set to %db.", OLIGO_LENGTH_MIN);
-	    args.oligo_length = OLIGO_LENGTH_MIN;
+		LOG_print("Oligo length is too short, < 40. Force set to %db.", oligo_length_minimal);
+	    args.oligo_length = oligo_length_minimal;
 	} else if (args.oligo_length > 100) {
 	    if (quiet_mode == 0)
-		LOG_print("Oligo length is too long, > 100. Force set to %db.", OLIGO_LENGTH_MAX);
-	    args.oligo_length = OLIGO_LENGTH_MAX;
+		LOG_print("Oligo length is too long, > 100. Force set to %db.", oligo_length_maxmal);
+	    args.oligo_length = oligo_length_maxmal;
 	}
     }
     if (depth != 0) {
 	args.depth = atoi(depth);
 	if (args.depth == 0) {
 	    args.depth = 2;
-	    if (quiet_mode == 0) LOG_print("Depth should greater than 0. Force set to 2.");
+	    if (quiet_mode == 0) {
+		LOG_print("Depth value is unreadable. Force set to 2. %s", depth);
+	    }
 	} else if (args.depth > 10) {
 	    args.depth = 4;
 	    if (quiet_mode == 0) LOG_print("Depth should not greater than 10. Force set to 4. Usually 2 ~ 4x.");
@@ -259,13 +283,13 @@ int prase_args(int argc, char **argv)
 	// this function will find the overlap regions of target and uniq dataset for design. And more, for exactly
 	// non-overlaped regions, means hang regions without any overlap with uniq database, will find the most nearest
 	// uniq regions for design if possible
-	args.design_regions = bed_find_rough_bigfile(bed, fp, tbx, args.gap_size, OLIGO_LENGTH_MAX);
+	args.design_regions = bed_find_rough_bigfile(bed, fp, tbx, args.gap_size, oligo_length_maxmal);
 	hts_close(fp);
 	tbx_destroy(tbx);
     } else {
 	args.design_regions = bed_dup(bed);
     }
-    debug_print ("design : %p", args.design_regions);
+
     // sometimes, uniq regions in database are very small and will break a contine region into several small regions.
     // merge these small regions into one piece if the gap between them is shorter than flank_uniq_length*2.
     // defined the flank_uniq_length based on the insert gap size of bubble oligos.
@@ -307,7 +331,7 @@ void bubble_design()
 void titling_design(int cid, int start, int end)
 {
     int length = end - start;
-    int oligo_length = args.oligo_length == 0 ? length < SMALL_REGION ? OLIGO_LENGTH_MIN : OLIGO_LENGTH_MAX : args.oligo_length;
+    int oligo_length = args.oligo_length == 0 ? length < SMALL_REGION ? oligo_length_minimal : oligo_length_maxmal : args.oligo_length;
     int n_parts = length/oligo_length == 0 ? args.depth : length/oligo_length * args.depth;
     int part = length/n_parts;
     int offset =  part > oligo_length ? 0 : (oligo_length - part)/2;
@@ -322,12 +346,12 @@ void titling_design(int cid, int start, int end)
 	    start_pos = start;
 	    if (start_pos + oligo_length > end) rank = 0;
 	}
-	if (mid > i && start_pos + oligo_length > end) {
+	if (mid < i && start_pos + oligo_length > end) {
 	    start_pos = end - oligo_length;
 	    if (start_pos < start) rank = 0; 
 	}
 	int l = 0;
-	char *seq = faidx_fetch_seq(args.fai, args.design_regions->names[cid], start_pos, start_pos+oligo_length-1, &l);
+	char *seq = faidx_fetch_seq(args.fai, args.design_regions->names[cid], start_pos+1, start_pos+oligo_length, &l);
 	if (l < oligo_length) {
 	    if (seq) free(seq);
 	    continue;
@@ -408,7 +432,7 @@ void generate_oligos()
     if (fp == NULL)
 	error("Failed to write %s : %s.", probe_path.s, strerror(errno));
 
-    int oligo_length = args.oligo_length == 0 ? OLIGO_LENGTH_MAX : args.oligo_length;
+    int oligo_length = args.oligo_length == 0 ? oligo_length_maxmal : args.oligo_length;
     // write header to probe file
     kstring_t header = KSTRING_INIT;
     kputs("##filetype=probe\n", &header);    

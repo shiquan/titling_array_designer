@@ -10,9 +10,22 @@
 // for very large file, there might be a memory overflow problem to keep all raw data, so here design a read-and-hold
 // structure to read some parts of bed file into memory pool, sort and merge cached data first and then load remain 
 // data to reduce the memory cost
-#define MEMPOOL_MAX_LINES  10000
+// #define MEMPOOL_MAX_LINES  10000
+static uint32_t mempool_max_lines = 10000;
 // if file is greater than FILE_SIZE_LIMIT, just hold the fp handler for bed_read()
-#define FILE_SIZE_LIMIT 100000000
+// #define FILE_SIZE_LIMIT 100000000
+static uint32_t file_size_limit = 10000000; // 10m
+
+
+void set_memory_max_lines(uint32_t n_lines)
+{
+    mempool_max_lines = n_lines;
+}
+
+void set_file_size_limit(uint32_t limit)
+{
+    file_size_limit = limit;
+}
 
 KSORT_INIT_GENERIC(uint64_t)
 
@@ -52,7 +65,7 @@ struct bedaux *bedaux_init()
     bed->length = 0;
     bed->line = 0;
     bed->fname = NULL;
-    bed->block_size = MEMPOOL_MAX_LINES;
+    bed->block_size = mempool_max_lines;
     return bed;
 }
 struct bed_chrom *bedchrom_init()
@@ -258,12 +271,10 @@ void bed_cache_update(struct bedaux *bed)
 	bed->regions += chrom->cached;
 	bed->length += chrom->length;
     }
-    bed->block_size = bed->regions + MEMPOOL_MAX_LINES;    
+    bed->block_size = bed->regions + mempool_max_lines;    
 }
 int bed_fill_bigdata(struct bedaux *bed)
 {
-    if (bed->flag & bed_bit_empty) return 1;
-    if (bed->flag ^ bed_bit_cached) return 1;    
     reghash_type *hash = (reghash_type*)bed->hash;
     kstring_t string = KSTRING_INIT;
     int dret;
@@ -295,7 +306,7 @@ int bed_fill_bigdata(struct bedaux *bed)
     }
     if ( string.m ) free(string.s);
     bgzf_close(bed->fp);
-    ks_destroy(bed->ks);
+    ks_destroy(bed->ks);    
     return 0;
 }
 int bed_read(struct bedaux *bed, const char *fname)
@@ -306,7 +317,7 @@ int bed_read(struct bedaux *bed, const char *fname)
 	error("failed to open %s : %s.", fname, strerror(errno));
     bgzf_seek(bed->fp, 0L, SEEK_END);
     uint64_t size = bgzf_tell(bed->fp);
-    debug_print("size : %lu", size);
+
     // go back to file begin    
     bgzf_seek(bed->fp, 0L, SEEK_SET);
     bed->ks = ks_init(bed->fp);
@@ -314,7 +325,7 @@ int bed_read(struct bedaux *bed, const char *fname)
     // remove empty flag
     bed->flag &= ~bed_bit_empty;
    // small file, cached whole file
-    if ( size < FILE_SIZE_LIMIT ) {
+    if ( size < file_size_limit ) {
 	bed_fill(bed);
 	bed->flag &= ~bed_bit_cached;
 	// file is empty, set empty flag
@@ -457,9 +468,9 @@ void bed_flktrim(struct bedaux *bed, int left, int right)
 	    uint32_t start = chm->a[j]>>32;
 	    uint32_t end = (uint32_t)chm->a[j];
 	    // if region is too short to trim, skip it without a warning
-	    if (end -start <= (left + right) * -1)
+	    if ((int)(end -start) <= (left + right) * -1)
 		continue;
-	    start += left;
+	    start -= left;
 	    end += right;
 	    chm->a[j] = (uint64_t)start << 32|end;
 	    chm->length += right + left;
@@ -517,6 +528,7 @@ struct bedaux *bed_find_rough_bigfile(struct bedaux *target, htsFile *fp, tbx_t 
 
     kstring_t string = KSTRING_INIT;
     struct bedaux *design = bedaux_init();
+    design->flag &= ~bed_bit_empty;
     while ( bed_getline(target, &line) == 0 ) {
 	// retrieve target in dataset
 	int tid = tbx_name2id(data, target->names[line.chrom_id]);
@@ -529,7 +541,7 @@ struct bedaux *bed_find_rough_bigfile(struct bedaux *target, htsFile *fp, tbx_t 
 	int right = 0;
 	struct bed_line dl = BED_LINE_INIT;
 	while ( tbx_itr_next(fp, data, itr, &string) >= 0) {	    
-	    prase_string(target, &string, &dl);
+	    prase_string(design, &string, &dl);
 	    if ( dl.start < line.start ) dl.start = line.start;
 	    if ( dl.end > line.end ) dl.end = line.end;
 	    if ( left == 0)
@@ -550,7 +562,7 @@ struct bedaux *bed_find_rough_bigfile(struct bedaux *target, htsFile *fp, tbx_t 
 	    uint32_t end = line.start;
 	    itr = tbx_itr_queryi(data, tid, start, end);
 	    while ( tbx_itr_next(fp, data, itr, &string) >= 0) {
-		prase_string(target, &string, &dl);
+		prase_string(design, &string, &dl);
 		if (dl.start < start) dl.start = start;
 		push_newline1(design, &dl);
 	    }
@@ -562,13 +574,14 @@ struct bedaux *bed_find_rough_bigfile(struct bedaux *target, htsFile *fp, tbx_t 
 	    uint32_t end = line.end + gap_size;
 	    itr = tbx_itr_queryi(data, tid, start, end);
 	    while ( tbx_itr_next(fp, data, itr, &string) >= 0) {
-		prase_string(target, &string, &dl);
+		prase_string(design, &string, &dl);
 		if (dl.end > end) dl.end = end;
 		push_newline1(design, &dl);
 	    }
 	    string.l = 0;
 	}
     }
+    bed_merge(design);
     return design;
 }
 struct bedaux *bed_diff(struct bedaux *bed1, struct bedaux *bed2)
@@ -631,3 +644,33 @@ int bed_save(struct bedaux *bed, const char *fname)
     fclose(fp);
     return 0;
 }
+
+#ifdef _MAIN_BED
+#include "utils.h"
+
+int main(int argc, char **argv)
+{
+    if (argc != 2) {
+	error("%s in.bed", argv[0]);
+    }
+    LOG_print("read %s ..", argv[1]);
+    struct bedaux *bed = bedaux_init();
+    bed_read(bed, argv[1]);
+    bed_merge(bed);
+    LOG_print("save merged target file target.bed ..");
+    bed_save(bed, "target.bed");
+
+    LOG_print("flank 100b of target file to flank.bed ..");
+    bed_flktrim(bed, 100, 100);
+    bed_save(bed, "flank.bed");
+    LOG_print("trim 100b of flanked file to trim.bed ..");
+    bed_flktrim(bed, -100, -100);
+    bed_save(bed, "trim.bed");
+    LOG_print("round trimed file by 10000b to round.bed ..");
+    bed_round(bed, 10000);
+    bed_save(bed, "round.bed");
+    LOG_print("clean ..");
+    bed_destroy(bed);
+    return 0;
+}
+#endif
