@@ -12,6 +12,7 @@
 #include "htslib/kseq.h"
 #include "utils.h"
 #include "bed_utils.h"
+#include "version.h"
 
 #ifndef KSTRING_INIT
 #define KSTRING_INIT { 0, 0, 0 }
@@ -132,9 +133,18 @@ int usage()
 	    "generate_probes - generate DNA titling array probes from target regions and reference genome sequences.\n"
 	    "Usage: \n"
 	    "generate_probes [options] -fasta hg19.fa -target target.bed -uniq_regions database.bed.gz -outdir output_dir\n"
-	    "options:\n"
-	    "       -r, -fasta   \n"
-	    "       -t, -target  \n"
+	    "Options:\n"
+	    "  -r, -fasta [fasta file]   reference genome sequences, in fasta format.\n"
+	    "  -t, -target [bed file]    target bed file to design.\n"
+	    "  -o, -outdir [dir]         output directary, will create it if not exists.\n"
+	    "  -u, -database [tabix-indexed bed file] database of non-repeats, or user pre-defined designable regions.\n"
+	    "  -l, -length [50] pre-defined oligo length, usually from 50 base to 90 base, set 0 for dynamic design.\n"
+	    "  -d, -depth [2]   oligo depths pre base, increase this value will increase the dense of oligos.\n"
+	    "  -must_design     if no uniq regions around small target, must design it no matter repeat regions.\n"
+	    "  -h, -help        for help information.\n"
+	    "Version: %s\n"
+	    "Bugs report: shiquan@genomics.cn\n"
+	    "Homepage: https://github.com/shiquan\n", OLIGOS_VERSION
 	);
     return 1;
 }
@@ -164,7 +174,7 @@ int prase_args(int argc, char **argv)
 	    var = &args.fasta_fname;
 	else if ( (strcmp(a, "-t") == 0 || strcmp(a, "-target") == 0) && args.input_bed_fname == 0 )
 	    var = &args.input_bed_fname;
-	else if ( (strcmp(a, "-u") == 0 || strcmp(a, "-uniq_regions") == 0) && args.uniq_bed_fname == 0 )
+	else if ( (strcmp(a, "-u") == 0 || strcmp(a, "-database") == 0) && args.uniq_bed_fname == 0 )
 	    var = &args.uniq_bed_fname;
 	else if ( (strcmp(a, "-o") == 0 || strcmp(a, "-outdir") == 0) && args.output_dir == 0 )
 	    var = &args.output_dir;
