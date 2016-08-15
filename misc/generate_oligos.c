@@ -163,7 +163,7 @@ int prase_args(int argc, char **argv)
 
     for (i = 0; i < argc; ++i) {
 	if ( i ) kputc(' ', &args.commands);
-	kputs(argv[i], &args.commands;
+	kputs(argv[i], &args.commands);
     }
     const char *length = 0;
     const char *depth = 0;
