@@ -65,6 +65,7 @@ struct args {
     struct bed_line line;
     faidx_t *fai;
     kstring_t commands;
+    uint32_t probes_number;
 };
 
 struct args args = {
@@ -90,6 +91,7 @@ struct args args = {
     .line = BED_LINE_INIT,
     .commands = KSTRING_INIT,
     .fai = 0,
+    .probes_number = 0,
 };
 
 static int oligo_length_minimal = 50;
@@ -426,7 +428,8 @@ void titling_design(int cid, int start, int end)
 	}
 	float repeat = repeat_ratio(seq, oligo_length);
 	float gc = calculate_GC(seq, oligo_length);
-	ksprintf(&args.string, "%s\t%d\t%d\t%d\t%s\t%d\t%d,\t%d,\t%.2f\t%.2f\t%d\n", args.design_regions->names[cid], start_pos, start_pos + oligo_length, oligo_length, seq, 1, start_pos, start_pos+oligo_length, repeat, gc, rank);	
+	ksprintf(&args.string, "%s\t%d\t%d\t%d\t%s\t%d\t%d,\t%d,\t%.2f\t%.2f\t%d\n", args.design_regions->names[cid], start_pos, start_pos + oligo_length, oligo_length, seq, 1, start_pos, start_pos+oligo_length, repeat, gc, rank);
+	args.probes_number ++;
     }
 }
 // format of oligos file.
@@ -506,10 +509,11 @@ void generate_oligos()
     // write header to probe file
     kstring_t header = KSTRING_INIT;
     kputs("##filetype=probe\n", &header);
-    ksprintf(&header,"##generate_oligos Version=%s\n", get_version());
-    ksprintf(&header,"##project name=%s\n", args.project_name);
-    ksprintf(&header,"##max_length=%d\n", oligo_length);    
-    ksprintf(&header,"##Command=%s\n", args.commands.s);
+    ksprintf(&header, "##generate_oligos Version=%s\n", get_version());
+    ksprintf(&header, "##project_name=%s\n", args.project_name);
+    ksprintf(&header, "##max_length=%d\n", oligo_length);
+    ksprintf(&header, "##oligo_number=%u\n", args.probes_number);
+    ksprintf(&header, "##Command=%s\n", args.commands.s);    
     kputs("#chrom\tstart\tend\tseq_length\tsequence\tn_block\tstarts\tends\trepeat_ratio\tGC_content\trank\n", &header);
     bgzf_write(fp, header.s, header.l);
     free(header.s);
@@ -567,6 +571,7 @@ int main(int argc, char **argv)
     export_summary_reports();
     
     clean_memory();
-    
+    LOG_print("%u oligos were generated. See probe.txt.gz for details.", args.probes_number);
+    LOG_print("Sucess.");
     return 0;
 }
