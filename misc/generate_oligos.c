@@ -29,6 +29,8 @@ struct args {
     // output directary for keep designs and summary file
     const char *output_dir;
     const char *common_variants_fname;
+    // project name
+    const char *project_name;
     // design for each region as much as possible, 0 for default
     int must_design; 
     // defaulf oligo length is 50 now, if set to 0 dynamic mode will enabled
@@ -71,6 +73,7 @@ struct args args = {
     .fasta_fname = 0,
     .input_bed_fname = 0,
     .uniq_bed_fname = 0,
+    .project_name = 0,
     .common_variants_fname = 0,
     .output_dir = 0,
     .oligo_length = 50,
@@ -140,14 +143,24 @@ int usage()
 	    "Usage: \n"
 	    "generate_probes [options] -fasta hg19.fa -target target.bed -uniq_regions database.bed.gz -outdir output_dir\n"
 	    "Options:\n"
-	    "  -r, -fasta [fasta file]   reference genome sequences, in fasta format.\n"
-	    "  -t, -target [bed file]    target bed file to design.\n"
-	    "  -o, -outdir [dir]         output directary, will create it if not exists.\n"
-	    "  -u, -database [tabix-indexed bed file] database of non-repeats, or user pre-defined designable regions.\n"
-	    "  -l, -length [50] pre-defined oligo length, usually from 50 base to 90 base, set 0 for dynamic design.\n"
-	    "  -d, -depth [2]   oligo depths pre base, increase this value will increase the dense of oligos.\n"
-	    "  -must_design     if no uniq regions around small target, must design it no matter repeat regions.\n"
-	    "  -h, -help        for help information.\n"
+	    "  -r, -fasta [fasta file]\n"
+	    "            reference genome sequences, in fasta format.\n"
+	    "  -t, -target [bed file]\n"
+	    "            target bed file to design.\n"
+	    "  -o, -outdir [dir]\n"
+	    "            output directary, will create it if not exists.\n"
+	    "  -u, -database [tabix-indexed bed file]\n"
+	    "            database of non-repeats, or user pre-defined designable regions.\n"
+	    "  -l, -length [50]\n"
+	    "            pre-defined oligo length, usually from 50 base to 90 base, set 0 for dynamic design.\n"
+	    "  -d, -depth [2]\n"
+	    "            oligo depths pre base, increase this value will increase the dense of oligos.\n"
+	    "  -p, -project [string]\n"
+	    "            project id\n"
+	    "  -must_design\n"
+	    "            if no uniq regions around small target, must design it no matter repeat regions.\n"
+	    "  -h, -help\n"
+	    "            for help information.\n"
 	    "Version: %s\n"
 	    "Bugs report: shiquan@genomics.cn\n"
 	    "Homepage: https://github.com/shiquan\n", OLIGOS_VERSION
@@ -178,6 +191,8 @@ int prase_args(int argc, char **argv)
 	const char **var = 0;
 	if ( (strcmp(a, "-r") == 0 || strcmp(a, "-fasta") == 0) && args.fasta_fname == 0 )
 	    var = &args.fasta_fname;
+	if ( (strcmp(a, "-p") == 0 || strcmp(a, "-project") == 0) && args.project_name == 0)
+	    var = &args.project_name;
 	else if ( (strcmp(a, "-t") == 0 || strcmp(a, "-target") == 0) && args.input_bed_fname == 0 )
 	    var = &args.input_bed_fname;
 	else if ( (strcmp(a, "-u") == 0 || strcmp(a, "-database") == 0) && args.uniq_bed_fname == 0 )
@@ -209,6 +224,9 @@ int prase_args(int argc, char **argv)
 	LOG_print("The program was compiled at %s %s by %s.", __DATE__, __TIME__, getenv("USER"));
 	LOG_print("Args: %s", args.commands.s);
     }
+    if (args.project_name == 0) {
+	error("No project name. Please use -p or -project to spectify.")
+    }
     if (args.output_dir != 0) {
 	struct stat s = { 0 };
 	if ( stat(args.output_dir, &s) == -1 ) {
@@ -222,10 +240,10 @@ int prase_args(int argc, char **argv)
 	}
     }
     if (args.fasta_fname == 0)
-	error("Required a reference genome sequence. Use -r/-fasta to specify it.");
+	error("Required a reference genome sequence. Use -r or -fasta to specify.");
 
     if (args.input_bed_fname == 0)
-	error("Required a target bed file. Use -t/-target to specify it.");
+	error("Required a target bed file. Use -t or -target to specify.");
 
     if (args.uniq_bed_fname == 0) {
 	if (quiet_mode == 0)
@@ -409,7 +427,7 @@ void titling_design(int cid, int start, int end)
 	float repeat = repeat_ratio(seq, oligo_length);
 	float gc = calculate_GC(seq, oligo_length);
 	ksprintf(&args.string, "%s\t%d\t%d\t%d\t%s\t%d\t%d,\t%d,\t%.2f\t%.2f\t%d\n", args.design_regions->names[cid], start_pos, start_pos + oligo_length, oligo_length, seq, 1, start_pos, start_pos+oligo_length, repeat, gc, rank);	
-    }        
+    }
 }
 // format of oligos file.
 // chr, start(0-based), end, seq_length, sequences, n_blocks, blocks(seperated by commas, sometime the sequences are consist of different parts from reference sequences), gc percent, type, rank, score
@@ -487,9 +505,10 @@ void generate_oligos()
     int oligo_length = args.oligo_length == 0 ? oligo_length_maxmal : args.oligo_length;
     // write header to probe file
     kstring_t header = KSTRING_INIT;
-    kputs("##filetype=probe\n", &header);    
-    ksprintf(&header,"##max_length=%d\n", oligo_length);
+    kputs("##filetype=probe\n", &header);
     ksprintf(&header,"##generate_oligos Version=%s\n", get_version());
+    ksprintf(&header,"##project name=%s\n", args.project_name);
+    ksprintf(&header,"##max_length=%d\n", oligo_length);    
     ksprintf(&header,"##Command=%s\n", args.commands.s);
     kputs("#chrom\tstart\tend\tseq_length\tsequence\tn_block\tstarts\tends\trepeat_ratio\tGC_content\trank\n", &header);
     bgzf_write(fp, header.s, header.l);
