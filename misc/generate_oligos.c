@@ -225,7 +225,7 @@ int prase_args(int argc, char **argv)
 	LOG_print("Args: %s", args.commands.s);
     }
     if (args.project_name == 0) {
-	error("No project name. Please use -p or -project to spectify.")
+	error("No project name. Please use -p or -project to spectify.");
     }
     if (args.output_dir != 0) {
 	struct stat s = { 0 };
