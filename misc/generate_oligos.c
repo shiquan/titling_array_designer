@@ -512,7 +512,7 @@ void generate_oligos()
     ksprintf(&header, "##generate_oligos Version=%s\n", get_version());
     ksprintf(&header, "##project_name=%s\n", args.project_name);
     ksprintf(&header, "##max_length=%d\n", oligo_length);
-    ksprintf(&header, "##oligo_number=%u\n", args.probes_number);
+    // ksprintf(&header, "##oligo_number=%u\n", args.probes_number); // should always be 0
     ksprintf(&header, "##Command=%s\n", args.commands.s);    
     kputs("#chrom\tstart\tend\tseq_length\tsequence\tn_block\tstarts\tends\trepeat_ratio\tGC_content\trank\n", &header);
     bgzf_write(fp, header.s, header.l);
