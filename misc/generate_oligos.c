@@ -14,6 +14,8 @@
 #include "bed_utils.h"
 #include "version.h"
 
+#define ROUND_SIZE 80
+
 #ifndef KSTRING_INIT
 #define KSTRING_INIT { 0, 0, 0 }
 #endif
@@ -301,10 +303,10 @@ int prase_args(int argc, char **argv)
     bed_read(args.target_regions, args.input_bed_fname);
 
     // bed will merge auto.
-    // for some target regions, usually short than 100, expand to 100 size.
-    // the reason we define the expand size to 100 is our oligo length usually smaller than 100. so
+    // for some target regions, usually short than ROUND_SIZE, expand to ROUND_SIZE.
+    // the reason we define the expand size to ROUND_SIZE is our oligo length usually smaller than ROUND_SIZE. so
     // for a single nucletide variantion, there should be at least two different oligos cover it at any depth.
-    bed_round(args.target_regions, 100);
+    bed_round(args.target_regions, ROUND_SIZE);
 
     // merge two near regions
     struct bedaux *bed = bed_dup(args.target_regions);
