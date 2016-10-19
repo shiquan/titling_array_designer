@@ -14,7 +14,8 @@
 #include "bed_utils.h"
 #include "version.h"
 
-#define ROUND_SIZE 80
+#define ROUND_SIZE  100
+#define DEPTH_LIMIT  20
 
 #ifndef KSTRING_INIT
 #define KSTRING_INIT { 0, 0, 0 }
@@ -286,9 +287,9 @@ int prase_args(int argc, char **argv)
 	    if (quiet_mode == 0) {
 		LOG_print("Depth value is unreadable. Force set to 2. %s", depth);
 	    }
-	} else if (args.depth > 10) {
+	} else if (args.depth > DEPTH_LIMIT) {
 	    args.depth = 4;
-	    if (quiet_mode == 0) LOG_print("Depth should not greater than 10. Force set to 4. Usually 2 ~ 4x.");
+	    if (quiet_mode == 0) LOG_print("Depth should not greater than %d. Force set to %d. Usually 2 ~ 4x.", DEPTH_LIMIT,DEPTH_LIMIT);
 	}	
     }
     if (args.oligo_length == 0 && quiet_mode == 0) {
