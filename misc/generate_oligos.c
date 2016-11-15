@@ -400,7 +400,9 @@ void must_design(int cid, int start, int end)
 int bubble_design(int cid, int last_start, int last_end, int start, int end)
 {
     int length = end - start + last_end - last_start;
-    int oligo_length = length > oligo_length_maxmal ? oligo_length_maxmal : oligo_length_minimal;
+    int oligo_length = args.oligo_length == 0 ?
+        length < SMALL_REGION ? oligo_length_minimal : oligo_length_maxmal
+        : args.oligo_length;
     float n_parts = (float)length/oligo_length < 1 ? args.depth : (float)length/oligo_length * args.depth;
     int part = length/n_parts;
     int offset = part > oligo_length ? 0 : (oligo_length - part)/2;
