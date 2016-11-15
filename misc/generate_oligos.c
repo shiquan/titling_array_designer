@@ -421,14 +421,14 @@ int bubble_design(int cid, int last_start, int last_end, int start, int end)
         int offset_l = i * part;
         int start_pos = offset_l > head_length ? start + offset_l - head_length : last_start + offset_l;
         start_pos = start_pos - offset;
-        if ( mid > i && start_pos < last_start) {
+        if ( mid < i && start_pos < last_start) {
             start_pos = last_start;
             // rank = 0;
         }
         int end_pos = start + oligo_length - (last_end-start_pos);
-        if ( mid < i && end_pos > end) {
-            start_pos = end - oligo_length;
+        if ( mid > i && end_pos > end) {
             end_pos = end;
+            start_pos = last_end - oligo_length + end_pos - start;
         }
         int l = 0;
         char *head = faidx_fetch_seq(args.fai, args.design_regions->names[cid], start_pos+1, last_end, &l);
