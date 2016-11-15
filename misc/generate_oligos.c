@@ -418,11 +418,20 @@ int bubble_design(int cid, int last_start, int last_end, int start, int end)
         int rank = 1;
         int offset_l = i * part;
         int start_pos = offset_l > head_length ? start + offset_l - head_length : last_start + offset_l;
+        start_pos = start_pos - offset;
+        if ( mid > i && start_pos < last_start) {
+            start_pos = last_start;
+            // rank = 0;
+        }
+        int end_pos = start + oligo_length - (last_end-start_pos);
+        if ( mid < i && end_pos > end) {
+            start_pos = end - oligo_length;
+            end_pos = end;
+        }
         int l = 0;
         char *head = faidx_fetch_seq(args.fai, args.design_regions->names[cid], start_pos+1, last_end, &l);
-        kputs(head, &string);
-        int end_pos = start + oligo_length - (last_end-start_pos);
         char *tail = faidx_fetch_seq(args.fai, args.design_regions->names[cid], start, end_pos, &l);
+        kputs(head, &string);                
         kputs(tail, &string);
         free(head);
         free(tail);
