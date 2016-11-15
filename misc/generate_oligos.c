@@ -432,11 +432,12 @@ int bubble_design(int cid, int last_start, int last_end, int start, int end)
         }
         int l = 0;
         char *head = faidx_fetch_seq(args.fai, args.design_regions->names[cid], start_pos+1, last_end, &l);
-        char *tail = faidx_fetch_seq(args.fai, args.design_regions->names[cid], start, end_pos, &l);
+        char *tail = faidx_fetch_seq(args.fai, args.design_regions->names[cid], start+1, end_pos, &l);
         kputs(head, &string);                
         kputs(tail, &string);
         free(head);
         free(tail);
+        assert(string.l == oligo_length);
         float repeat = repeat_ratio(string.s, oligo_length);
         float gc = calculate_GC(string.s, oligo_length);
         ksprintf(&args.string, "%s\t%d\t%d\t%d\t%s\t%d\t%d,%d,\t%d,%d,\t%.2f\t%.2f\t%d\n", args.design_regions->names[cid], start_pos, end_pos, oligo_length, string.s, 1, start_pos, start, last_end, end_pos, repeat, gc, rank);
