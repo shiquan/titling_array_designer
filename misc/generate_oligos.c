@@ -411,7 +411,7 @@ int bubble_design(int cid, int last_start, int last_end, int start, int end)
     int head_length = last_end - last_start;
     int tail_length = end - start;
     // only works when head length smaller than oligo length, for longer region use titling_design() instead.
-    assert(oligo_length <= head_length);
+    assert(oligo_length > head_length);
     // if length of regions shorter than oligo length, skip the tail.
     if ( head_length + tail_length  < oligo_length )
         return 1;
@@ -514,6 +514,8 @@ int generate_oligos_core()
         if ( gap > BUBBLE_GAP_MAX ) {
 	    must_design( args.last_chrom_id, args.last_start, args.last_end);
 	} else {
+            if ( args.oligo_length)
+                assert(args.last_end - args.last_start < args.oligo_length);
 	    // if gap size is short, design bubble oligos, create two blocks.
 	    // remember, because we have expand and merge nearby regions after generate uniq design regions, so there should 
 	    // not be more than two blocks in the downstream design.
