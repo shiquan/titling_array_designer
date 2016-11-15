@@ -487,6 +487,13 @@ void titling_design(int cid, int start, int end)
 int generate_oligos_core()
 {
     struct bed_line *line = &args.line;
+    if ( bed_getline(args.design_regions, line) ) {
+        if (args.last_is_empty == 1) {
+            must_design( args.last_chrom_id, args.last_start, args.last_end);
+        }
+	return 1;
+    }
+    int length = line->end - line->start;        
     // first line
     if ( args.last_chrom_id == -1 ) 
 	goto design;
@@ -499,9 +506,10 @@ int generate_oligos_core()
 	}
 	goto print_line;
     }
-    int gap = line->start - args.last_end;
+    
     if ( args.last_is_empty == 1) {
-	if ( gap > BUBBLE_GAP_MAX ) {
+        int gap = line->start - args.last_end;
+        if ( gap > BUBBLE_GAP_MAX ) {
 	    must_design( args.last_chrom_id, args.last_start, args.last_end);
 	} else {
 	    // if gap size is short, design bubble oligos, create two blocks.
@@ -510,23 +518,16 @@ int generate_oligos_core()
 	    if ( bubble_design(args.last_chrom_id, args.last_start, args.last_end, line->start, line->end) )
                 return 0;
 	}
+        args.last_is_empty = 0;
     }
     
-  design:
-    if ( bed_getline(args.design_regions, line) )
-	return 1;
-    
-    int length = line->end - line->start;
+  design:    
     if (length < args.oligo_length) {
-	if ( gap > BUBBLE_GAP_MAX ) {
-	    args.last_is_empty = 1;
-	} else {
-            if ( bubble_design(args.last_chrom_id, args.last_start, args.last_end, line->start, line->end) )
-                return 0;
-	    // bubble_design();
-	}
+        args.last_is_empty = 1;
+        goto print_line;
     } else {
 	titling_design(line->chrom_id, line->start, line->end);
+        // args.last_is_empty = 0;
     }
     
   print_line:	
