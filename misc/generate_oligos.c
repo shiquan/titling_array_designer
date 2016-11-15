@@ -12,8 +12,8 @@
 #include "htslib/kseq.h"
 #include "utils.h"
 #include "bed_utils.h"
-#include "version.h"
-
+// #include "version.h"
+#define OLIGOS_VERSION "0.0.2"
 #define ROUND_SIZE  100
 #define DEPTH_LIMIT  20
 
@@ -397,14 +397,51 @@ void must_design(int cid, int start, int end)
 // is very short, we should not expand it for better performace, because the last region is very close to current one, the
 // oligo of last region will capture big enough fragement to enhance the coverage of current one. so it is OK even there are
 // not any designed oligos located in current region.
-void bubble_design()
+int bubble_design(int cid, int last_start, int last_end, int start, int end)
 {
+    int length = end - start + last_end - last_start;
+    int oligo_length = length > oligo_length_maxmal ? oligo_length_maxmal : oligo_length_minimal;
+    float n_parts = (float)length/oligo_length < 1 ? args.depth : (float)length/oligo_length * args.depth;
+    int part = length/n_parts;
+    int offset = part > oligo_length ? 0 : (oligo_length - part)/2;
+    float mid = ( float) n_parts/2;
+    int i;
+    int head_length = last_end - last_start;
+    int tail_length = end - start;
+    // only works when head length smaller than oligo length, for longer region use titling_design() instead.
+    assert(oligo_length > head_length);
+    // if length of regions shorter than oligo length, skip the tail.
+    if ( head_length + tail_length  < oligo_length )
+        return 1;
+    kstring_t string = KSTRING_INIT;    
+    for (i = 0; i < n_parts; ++i ) {
+        int rank = 1;
+        int offset_l = i * part;
+        int start_pos = offset_l > head_length ? start + offset_l - head_length : last_start + offset_l;
+        int l = 0;
+        char *head = faidx_fetch_seq(args.fai, args.design_regions->names[cid], start_pos+1, last_end, &l);
+        kputs(head, &string);
+        int end_pos = start + oligo_length - (last_end-start_pos);
+        char *tail = faidx_fetch_seq(args.fai, args.design_regions->names[cid], start, end_pos, &l);
+        kputs(tail, &string);
+        free(head);
+        free(tail);
+        float repeat = repeat_ratio(string.s, oligo_length);
+        float gc = calculate_GC(string.s, oligo_length);
+        ksprintf(&args.string, "%s\t%d\t%d\t%d\t%s\t%d\t%d,%d,\t%d,%d,\t%.2f\t%.2f\t%d\n", args.design_regions->names[cid], start_pos, end_pos, oligo_length, string.s, 1, start_pos, start, last_end, end_pos, repeat, gc, rank);
+	args.probes_number ++;
+        string.l = 0;
+    }
+    free(string.s);
+    return 0;
 }
 // rough design, not consider of common variants
 void titling_design(int cid, int start, int end)
 {
     int length = end - start;
-    int oligo_length = args.oligo_length == 0 ? length < SMALL_REGION ? oligo_length_minimal : oligo_length_maxmal : args.oligo_length;
+    int oligo_length = args.oligo_length == 0 ?
+        length < SMALL_REGION ? oligo_length_minimal : oligo_length_maxmal
+        : args.oligo_length;
     float n_parts = (float)length/oligo_length < 1 ? args.depth : (float)length/oligo_length * args.depth;
     int part = length/n_parts;
     int offset =  part > oligo_length ? 0 : (oligo_length - part)/2;
@@ -433,6 +470,7 @@ void titling_design(int cid, int start, int end)
 	float gc = calculate_GC(seq, oligo_length);
 	ksprintf(&args.string, "%s\t%d\t%d\t%d\t%s\t%d\t%d,\t%d,\t%.2f\t%.2f\t%d\n", args.design_regions->names[cid], start_pos, start_pos + oligo_length, oligo_length, seq, 1, start_pos, start_pos+oligo_length, repeat, gc, rank);
 	args.probes_number ++;
+        free(seq);
     }
 }
 // format of oligos file.
@@ -460,7 +498,8 @@ int generate_oligos_core()
 	    // if gap size is short, design bubble oligos, create two blocks.
 	    // remember, because we have expand and merge nearby regions after generate uniq design regions, so there should 
 	    // not be more than two blocks in the downstream design.
-	    bubble_design();
+	    if ( bubble_design(args.last_chrom_id, args.last_start, args.last_end, line->start, line->end) )
+                return 0;
 	}
     }
     
@@ -473,7 +512,9 @@ int generate_oligos_core()
 	if ( gap > BUBBLE_GAP_MAX ) {
 	    args.last_is_empty = 1;
 	} else {
-	    bubble_design();
+            if ( bubble_design(args.last_chrom_id, args.last_start, args.last_end, line->start, line->end) )
+                return 0;
+	    // bubble_design();
 	}
     } else {
 	titling_design(line->chrom_id, line->start, line->end);
