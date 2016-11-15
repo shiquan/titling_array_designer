@@ -12,8 +12,8 @@
 #include "htslib/kseq.h"
 #include "utils.h"
 #include "bed_utils.h"
-// #include "version.h"
-#define OLIGOS_VERSION "0.0.2"
+#include "version.h"
+
 #define ROUND_SIZE  100
 #define DEPTH_LIMIT  20
 
