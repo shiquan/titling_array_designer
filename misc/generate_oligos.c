@@ -421,12 +421,12 @@ int bubble_design(int cid, int last_start, int last_end, int start, int end)
         int offset_l = i * part;
         int start_pos = offset_l > head_length ? start + offset_l - head_length : last_start + offset_l;
         start_pos = start_pos - offset;
-        if ( mid < i && start_pos < last_start) {
+        if (start_pos < last_start) {
             start_pos = last_start;
             // rank = 0;
         }
         int end_pos = start + oligo_length - (last_end-start_pos);
-        if ( mid > i && end_pos > end) {
+        if (end_pos > end) {
             end_pos = end;
             start_pos = last_end - oligo_length + end_pos - start;
         }
@@ -499,6 +499,15 @@ int generate_oligos_core()
         }
 	return 1;
     }
+    if ( args.last_chrom_id == line->chrom_id )  {
+        if ( args.last_end > line->end)
+            return 0;
+    
+        if ( args.last_end > line->start ) {
+            line->start = args.last_end;
+        }
+    }
+
     int length = line->end - line->start;        
     // first line
     if ( args.last_chrom_id == -1 ) 
