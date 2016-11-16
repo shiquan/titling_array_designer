@@ -555,7 +555,8 @@ int generate_oligos_core()
         args.last_is_empty = 0;
     }
     
-  design:    
+  design:
+    assert(args.last_is_empty == 0);
     if (length < args.oligo_length) {
         args.last_is_empty = 1;
         goto print_line;
