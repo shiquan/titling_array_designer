@@ -406,12 +406,12 @@ int bubble_design(int cid, int last_start, int last_end, int start, int end)
     float n_parts = (float)length/oligo_length < 1 ? args.depth : (float)length/oligo_length * args.depth;
     int part = length/n_parts;
     int offset = part > oligo_length ? 0 : (oligo_length - part)/2;
-    // float mid = ( float) n_parts/2;
     int i;
     int head_length = last_end - last_start;
     int tail_length = end - start;
     // only works when head length smaller than oligo length, for longer region use titling_design() instead.
     assert(oligo_length > head_length);
+
     // if length of regions shorter than oligo length, skip the tail.
     if ( head_length + tail_length  < oligo_length )
         return 1;
@@ -530,7 +530,7 @@ int generate_oligos_core()
     // first line of next chromosome
     if ( args.last_chrom_id != line->chrom_id ) {
 	if ( args.last_is_empty == 1) {
-	    must_design( args.last_chrom_id, args.last_start, args.last_end);
+	    must_design(args.last_chrom_id, args.last_start, args.last_end);
 	}
 	goto print_line;
     }
@@ -538,10 +538,12 @@ int generate_oligos_core()
     if ( args.last_is_empty == 1) {
         int gap = line->start - args.last_end;
         if ( gap > BUBBLE_GAP_MAX ) {
-	    must_design( args.last_chrom_id, args.last_start, args.last_end);
+	    must_design(args.last_chrom_id, args.last_start, args.last_end);
 	} else {
-            if ( args.oligo_length)
-                assert(args.last_end - args.last_start < args.oligo_length);
+            if (args.oligo_length != 0)
+                if (args.last_end - args.last_start < args.oligo_length) {
+                    error("%d\t%d\t%d\n", args.last_end, args.last_start, args.oligo_length);
+                }
 	    // if gap size is short, design bubble oligos, create two blocks.
 	    // remember, because we have expand and merge nearby regions after generate uniq design regions, so there should 
 	    // not be more than two blocks in the downstream design.
