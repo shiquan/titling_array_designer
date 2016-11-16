@@ -119,7 +119,7 @@ void set_oligo_length_max(int length)
 #define SMALL_REGION 200
 // in case two regions come very close
 static int flank_region_length = 50;
-sta/tic int trim_region_length = -50;
+static int trim_region_length = -50;
 void set_flank_trim_regions_length(int length)
 {
     if ( length < 0 )
