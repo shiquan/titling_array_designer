@@ -523,9 +523,12 @@ int generate_oligos_core()
 
     int length = line->end - line->start;        
     // first line
-    if ( args.last_chrom_id == -1 ) 
+    if ( args.last_chrom_id == -1 )
 	goto design;
 
+    if ( length > args.oligo_length)
+        goto design;
+    
     // check last region is empty
     // first line of next chromosome
     if ( args.last_chrom_id != line->chrom_id ) {
