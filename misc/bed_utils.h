@@ -55,6 +55,18 @@ struct bed_chrom {
     uint32_t length;    
 };
 
+struct bed_stack {
+    int l, m;
+    struct bed_line *stack;
+};
+
+inline void clear_bedstack(struct bed_stack *stack)
+{
+    if ( stack->m )
+        free(stack->stack);
+    stack->l = stack->m = 0;
+    stack->stack = NULL;
+}
 // typedef struct bed_chrom* bed_chrom_point;
 // KHASH_MAP_INIT_STR(reg, struct bed_chrom_point)
 // typedef kh_reg_t reghash_t;

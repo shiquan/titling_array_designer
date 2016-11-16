@@ -114,7 +114,10 @@ void set_oligo_length_max(int length)
 }
 
 #define BUBBLE_GAP_MAX 30
-#define BUBBLE_GAP_MIN 5
+#define BUBBLE_GAP_MIN 0
+
+struct bed_stack reg_stack = { 0, 0, 0, };
+
 
 #define SMALL_REGION 200
 // in case two regions come very close
@@ -406,7 +409,7 @@ int bubble_design(int cid, int last_start, int last_end, int start, int end)
     float n_parts = (float)length/oligo_length < 1 ? args.depth : (float)length/oligo_length * args.depth;
     int part = length/n_parts;
     int offset = part > oligo_length ? 0 : (oligo_length - part)/2;
-    float mid = ( float) n_parts/2;
+    // float mid = ( float) n_parts/2;
     int i;
     int head_length = last_end - last_start;
     int tail_length = end - start;
@@ -419,32 +422,44 @@ int bubble_design(int cid, int last_start, int last_end, int start, int end)
     for (i = 0; i < n_parts; ++i ) {
         int rank = 1;
         int offset_l = i * part;
-        int start_pos = offset_l > head_length ? start + offset_l - head_length : last_start + offset_l;
-        start_pos = start_pos - offset;
+        int start_pos = offset_l > head_length ? start + offset_l - head_length -1: last_start + offset_l-1;
+        // start_pos = start_pos - offset;
         if (start_pos < last_start) {
             start_pos = last_start;
             // rank = 0;
         }
-        int end_pos = start + oligo_length - (last_end-start_pos);
+        int end_pos = start_pos >= start ? start_pos + oligo_length : start + oligo_length - (last_end-start_pos);
         if (end_pos > end) {
             end_pos = end;
-            start_pos = last_end - oligo_length + end_pos - start;
+            start_pos = end_pos - oligo_length >= start ? end_pos - oligo_length : last_end - (oligo_length - (end_pos - start));
         }
         int l = 0;
-        char *head = faidx_fetch_seq(args.fai, args.design_regions->names[cid], start_pos+1, last_end, &l);
-        char *tail = faidx_fetch_seq(args.fai, args.design_regions->names[cid], start+1, end_pos, &l);
-        kputs(head, &string);                
-        kputs(tail, &string);
-        free(head);
-        free(tail);
+        //debug_print("%d\t%d\t%d\t%d\t%d\t%d\n", start_pos, end_pos, last_start, last_end, start, end);
+        if ( start_pos < start) {
+            char *head = faidx_fetch_seq(args.fai, args.design_regions->names[cid], start_pos+1, last_end, &l);
+            char *tail = faidx_fetch_seq(args.fai, args.design_regions->names[cid], start+1, end_pos, &l);            
+            kputs(head, &string);                
+            kputs(tail, &string);
+            free(head);
+            free(tail);
+            float repeat = repeat_ratio(string.s, string.l);
+            float gc = calculate_GC(string.s, string.l);
+            ksprintf(&args.string, "%s\t%d\t%d\t%d\t%s\t%d\t%d,%d,\t%d,%d,\t%.2f\t%.2f\t%d\n", args.design_regions->names[cid], start_pos, end_pos, oligo_length, string.s, 2, start_pos, start, last_end, end_pos, repeat, gc, rank);
+            args.probes_number ++;
+        
+        } else {
+            char *seq = faidx_fetch_seq(args.fai, args.design_regions->names[cid], start_pos+1, end_pos, &l);
+            kputs(seq, &string);
+            free(seq);
+            float repeat = repeat_ratio(string.s, string.l);
+            float gc = calculate_GC(string.s, string.l);
+            ksprintf(&args.string, "%s\t%d\t%d\t%d\t%s\t%d\t%d,\t%d,\t%.2f\t%.2f\t%d\n", args.design_regions->names[cid], start_pos, end_pos, oligo_length, string.s, 1, start_pos, end_pos, repeat, gc, rank);
+            args.probes_number ++;
+        }
         if(string.l != oligo_length) {
             fprintf(stderr, "%s\t%d\t%d\t%d\t%s\t%d\t%d,%d,\t%d,%d,\n", args.design_regions->names[cid], start_pos, end_pos, oligo_length, string.s, 1, start_pos, start, last_end, end_pos);
             exit(1);
         }
-        float repeat = repeat_ratio(string.s, oligo_length);
-        float gc = calculate_GC(string.s, oligo_length);
-        ksprintf(&args.string, "%s\t%d\t%d\t%d\t%s\t%d\t%d,%d,\t%d,%d,\t%.2f\t%.2f\t%d\n", args.design_regions->names[cid], start_pos, end_pos, oligo_length, string.s, 1, start_pos, start, last_end, end_pos, repeat, gc, rank);
-	args.probes_number ++;
         string.l = 0;
     }
     free(string.s);
@@ -461,7 +476,6 @@ void titling_design(int cid, int start, int end)
     int part = length/n_parts;
     int offset =  part > oligo_length ? 0 : (oligo_length - part)/2;
     float mid = (float)n_parts/2;
-
     int i;
     for (i = 0; i < n_parts; ++i) {
 	int rank = 1;
@@ -499,10 +513,12 @@ int generate_oligos_core()
         }
 	return 1;
     }
+    // if databases is not merged properly    
     if ( args.last_chrom_id == line->chrom_id )  {
+        // totally overlapped
         if ( args.last_end > line->end)
             return 0;
-    
+        // trim new region
         if ( args.last_end > line->start ) {
             line->start = args.last_end;
         }
@@ -541,10 +557,8 @@ int generate_oligos_core()
   design:    
     if (length < args.oligo_length) {
         args.last_is_empty = 1;
-        goto print_line;
     } else {
 	titling_design(line->chrom_id, line->start, line->end);
-        // args.last_is_empty = 0;
     }
     
   print_line:	
