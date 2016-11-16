@@ -541,7 +541,7 @@ int generate_oligos_core()
 	    must_design(args.last_chrom_id, args.last_start, args.last_end);
 	} else {
             if (args.oligo_length != 0)
-                if (args.last_end - args.last_start < args.oligo_length) {
+                if (args.last_end - args.last_start > args.oligo_length) {
                     error("%d\t%d\t%d\n", args.last_end, args.last_start, args.oligo_length);
                 }
 	    // if gap size is short, design bubble oligos, create two blocks.
