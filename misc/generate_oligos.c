@@ -540,10 +540,9 @@ int generate_oligos_core()
         if ( gap > BUBBLE_GAP_MAX ) {
 	    must_design(args.last_chrom_id, args.last_start, args.last_end);
 	} else {
-            if (args.oligo_length != 0)
-                if (args.last_end - args.last_start > args.oligo_length) {
-                    error("%d\t%d\t%d\n", args.last_end, args.last_start, args.oligo_length);
-                }
+            if (args.last_end - args.last_start > args.oligo_length) {
+                error("%d\t%d\t%d\t%d", args.last_end, args.last_start, args.oligo_length, length);            
+            }
 	    // if gap size is short, design bubble oligos, create two blocks.
 	    // remember, because we have expand and merge nearby regions after generate uniq design regions, so there should 
 	    // not be more than two blocks in the downstream design.
@@ -556,6 +555,7 @@ int generate_oligos_core()
   design:    
     if (length < args.oligo_length) {
         args.last_is_empty = 1;
+        goto print_line;
     } else {
 	titling_design(line->chrom_id, line->start, line->end);
         args.last_is_empty = 0;
