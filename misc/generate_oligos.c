@@ -116,13 +116,10 @@ void set_oligo_length_max(int length)
 #define BUBBLE_GAP_MAX 30
 #define BUBBLE_GAP_MIN 0
 
-struct bed_stack reg_stack = { 0, 0, 0, };
-
-
 #define SMALL_REGION 200
 // in case two regions come very close
 static int flank_region_length = 50;
-static int trim_region_length = -50;
+sta/tic int trim_region_length = -50;
 void set_flank_trim_regions_length(int length)
 {
     if ( length < 0 )
@@ -559,6 +556,7 @@ int generate_oligos_core()
         args.last_is_empty = 1;
     } else {
 	titling_design(line->chrom_id, line->start, line->end);
+        args.last_is_empty = 0;
     }
     
   print_line:	
