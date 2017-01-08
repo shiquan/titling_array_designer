@@ -34,6 +34,7 @@ struct args {
     const char *common_variants_fname;
     // project name
     const char *project_name;
+    int debug_mode;
     // design for each region as much as possible, 0 for default
     int must_design; 
     // defaulf oligo length is 50 now, if set to 0 dynamic mode will enabled
@@ -78,6 +79,7 @@ struct args args = {
     .input_bed_fname = 0,
     .uniq_bed_fname = 0,
     .project_name = 0,
+    .debug_mode = 0,
     .common_variants_fname = 0,
     .output_dir = 0,
     .oligo_length = 50,
@@ -87,6 +89,7 @@ struct args args = {
     .gap_size = 200,
     .must_design = 0,
     .depth = 2,
+    .last_chrom_id = -1,
     .last_start = 0,
     .last_end = 0,
     .last_is_empty = 0,
@@ -98,8 +101,8 @@ struct args args = {
 };
 
 static int oligo_length_minimal = 50;
-static int oligo_length_maxmal = 90;
-
+static int oligo_length_maxmal = 120;
+static int oligo_length_usual  = 90;
 static char *get_version(void)
 {
     return OLIGOS_VERSION;
@@ -175,7 +178,7 @@ int usage()
 // quiet mode, 0 for default, will export logs
 static int quiet_mode = 0;
 
-int prase_args(int argc, char **argv)
+int parse_args(int argc, char **argv)
 {
     int i;
 
@@ -193,6 +196,10 @@ int prase_args(int argc, char **argv)
 	    quiet_mode = 1;
 	    continue;
 	}
+        if ( strcmp(a, "-debug") == 0 ) {
+            args.debug_mode = 1;
+            continue;
+        }
 	const char **var = 0;
 	if ( (strcmp(a, "-r") == 0 || strcmp(a, "-fasta") == 0) && args.fasta_fname == 0 )
 	    var = &args.fasta_fname;
@@ -274,7 +281,7 @@ int prase_args(int argc, char **argv)
 	    if (quiet_mode == 0)
 		LOG_print("Oligo length is too short, < 40. Force set to %db.", oligo_length_minimal);
 	    args.oligo_length = oligo_length_minimal;
-	} else if (args.oligo_length > 100) {
+	} else if (args.oligo_length > oligo_length_maxmal) {
 	    if (quiet_mode == 0)
 		LOG_print("Oligo length is too long, > 100. Force set to %db.", oligo_length_maxmal);
 	    args.oligo_length = oligo_length_maxmal;
@@ -285,15 +292,16 @@ int prase_args(int argc, char **argv)
 	if (args.depth == 0) {
 	    args.depth = 2;
 	    if (quiet_mode == 0) {
-		LOG_print("Depth value is unreadable. Force set to 2. %s", depth);
+		LOG_print("Depth is unknown. Force set to 2. %s", depth);
 	    }
 	} else if (args.depth > DEPTH_LIMIT) {
-	    args.depth = 4;
-	    if (quiet_mode == 0) LOG_print("Depth should not greater than %d. Force set to %d. Usually 2 ~ 4x.", DEPTH_LIMIT,DEPTH_LIMIT);
+	    args.depth = DEPTH_LIMIT;
+	    if (quiet_mode == 0)
+                LOG_print("Depth capped to %d. Force set to %d. Usually 2 ~ 4x.", DEPTH_LIMIT, DEPTH_LIMIT);
 	}	
     }
     if (args.oligo_length == 0 && quiet_mode == 0) {
-	LOG_print("Use dynamic design mode, the length of oligos will set from 50b to 90b.");
+	LOG_print("Use dynamic design mode, the length of oligos will set from %dnt to %dnt.", oligo_length_minimal, oligo_length_maxmal);
     }
 
     args.target_regions = bedaux_init();
@@ -335,6 +343,7 @@ int prase_args(int argc, char **argv)
     // defined the flank_uniq_length based on the insert gap size of bubble oligos.
     bed_flktrim(args.design_regions, flank_uniq_length, flank_uniq_length);
     bed_flktrim(args.design_regions, trim_uniq_length, trim_uniq_length);
+
     bed_destroy(bed);
     return 0;
 }
@@ -411,6 +420,11 @@ int bubble_design(int cid, int last_start, int last_end, int start, int end)
     int tail_length = end - start;
     // only works when head length smaller than oligo length, for longer region use titling_design() instead.
     assert(oligo_length > head_length);
+    if ( args.debug_mode ) {
+        debug_print("last empty: %d\tlast: %d-%d\t%s:%d-%d\t%d\tn_part: %f\tpart: %d\toffset: %d\thead length: %d\ttail length: %d",
+                    args.last_is_empty, args.last_start, args.last_end,
+                    args.design_regions->names[cid], start, end, oligo_length, n_parts, part, offset, head_length, tail_length);
+    }
 
     // if length of regions shorter than oligo length, skip the tail.
     if ( head_length + tail_length  < oligo_length )
@@ -473,6 +487,10 @@ void titling_design(int cid, int start, int end)
     int part = length/n_parts;
     int offset =  part > oligo_length ? 0 : (oligo_length - part)/2;
     float mid = (float)n_parts/2;
+    if ( args.debug_mode ) {
+        debug_print("last empty:%d\tlast:%d-%d\t%s:%d-%d\t%d\tn_parts: %f\tpart: %d\toffset: %d",
+                    args.last_is_empty, args.last_start, args.last_end,args.design_regions->names[cid], start, end, oligo_length, n_parts, part, offset);
+    }
     int i;
     for (i = 0; i < n_parts; ++i) {
 	int rank = 1;
@@ -525,9 +543,6 @@ int generate_oligos_core()
     // first line
     if ( args.last_chrom_id == -1 )
 	goto design;
-
-    if ( length > args.oligo_length)
-        goto design;
     
     // check last region is empty
     // first line of next chromosome
@@ -535,6 +550,7 @@ int generate_oligos_core()
 	if ( args.last_is_empty == 1) {
 	    must_design(args.last_chrom_id, args.last_start, args.last_end);
 	}
+        args.last_is_empty = 1;
 	goto print_line;
     }
     
@@ -543,7 +559,7 @@ int generate_oligos_core()
         if ( gap > BUBBLE_GAP_MAX ) {
 	    must_design(args.last_chrom_id, args.last_start, args.last_end);
 	} else {
-            if (args.last_end - args.last_start > args.oligo_length) {
+            if (args.oligo_length && args.last_end - args.last_start > args.oligo_length) {
                 error("%d\t%d\t%d\t%d", args.last_end, args.last_start, args.oligo_length, length);            
             }
 	    // if gap size is short, design bubble oligos, create two blocks.
@@ -554,10 +570,14 @@ int generate_oligos_core()
 	}
         args.last_is_empty = 0;
     }
+
+    if ( length > args.oligo_length) {
+        goto design;
+    } 
     
   design:
     assert(args.last_is_empty == 0);
-    if (length < args.oligo_length) {
+    if (length < args.oligo_length || (args.oligo_length == 0 && length < oligo_length_minimal)) {
         args.last_is_empty = 1;
         goto print_line;
     } else {
@@ -580,7 +600,7 @@ void generate_oligos()
 	    error("Failed to build the index of %s.", args.fasta_fname);
 	args.fai = fai_load(args.fasta_fname);
     }
-    struct bed_line line = BED_LINE_INIT;
+    // struct bed_line line = BED_LINE_INIT;
     
     // create probe file in the out directary
     kstring_t probe_path = KSTRING_INIT;
@@ -652,7 +672,7 @@ int main(int argc, char **argv)
     if (argc == 0)
 	return usage();
     
-    if ( prase_args(--argc, ++argv) != 0 ) 
+    if ( parse_args(--argc, ++argv) != 0 ) 
 	return 1;
     
     generate_oligos();

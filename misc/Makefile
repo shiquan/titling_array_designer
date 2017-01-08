@@ -3,7 +3,7 @@ PROG=    generate_oligos
 all: $(PROG)
 
 CC       = gcc
-CFLAGS   = -g -Wall -Wc++-compat -O2
+CFLAGS   = -g -Wall -Wc++-compat -O0
 DFLAGS   = -lz -lhts
 
 

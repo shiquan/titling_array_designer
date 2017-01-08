@@ -627,7 +627,13 @@ int bed_save(struct bedaux *bed, const char *fname)
     if ( bed->flag & bed_bit_empty ) return 1;
     if ( bed->flag & bed_bit_cached ) bed_fill(bed);
     
-    FILE *fp = fopen(fname, "w");
+    FILE *fp;
+    if ( strcmp(fname, "stdout") == 0 )
+        fp = fdopen(fileno(stdout), "w");
+    else if ( strcmp(fname, "stderr") == 0 )
+        fp = fdopen(fileno(stderr), "w");
+    else
+        fp = fopen(fname, "w");
     khiter_t k;
     int i, j;
     reghash_type * hash = (reghash_type*)bed->hash;

@@ -1,1 +1,0 @@
-#define OLIGOS_VERSION "0.02"
