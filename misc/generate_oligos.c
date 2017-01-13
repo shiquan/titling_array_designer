@@ -551,7 +551,7 @@ int generate_oligos_core()
 	    must_design(args.last_chrom_id, args.last_start, args.last_end);
 	}
         args.last_is_empty = 0;
-	goto print_line;
+	goto design;
     }
     
     if ( args.last_is_empty == 1) {
@@ -583,6 +583,7 @@ int generate_oligos_core()
     } else {
 	titling_design(line->chrom_id, line->start, line->end);
         args.last_is_empty = 0;
+        goto print_line;
     }
     
   print_line:	
