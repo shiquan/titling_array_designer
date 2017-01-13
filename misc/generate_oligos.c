@@ -550,7 +550,7 @@ int generate_oligos_core()
 	if ( args.last_is_empty == 1) {
 	    must_design(args.last_chrom_id, args.last_start, args.last_end);
 	}
-        args.last_is_empty = 1;
+        args.last_is_empty = 0;
 	goto print_line;
     }
     
