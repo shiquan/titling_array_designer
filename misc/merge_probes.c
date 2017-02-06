@@ -20,7 +20,7 @@ struct args {
     int n_files;
     int m_files;
     htsFile **fp;
-    kstring_t string;
+    kstring_t command;
     int oligo_length;
     // 0 on default, 1 on header only, 2 on no header
     int header_flag;
@@ -28,7 +28,7 @@ struct args {
     .n_files = 0,
     .m_files = 0,
     .fp = NULL,
-    .string = {0, 0, 0},
+    .command = KSTRING_INIT,
     .oligo_length = 0,
     .header_flag = 0,
 };
@@ -65,8 +65,9 @@ void release_memory()
     for ( i = 0; i < args.n_files; ++i )
         hts_close(args.fp[i]);
     free(args.fp);
-    if ( args.string.l )
-        free(args.string.s);
+    if ( args.command.l )
+        free(args.command.s);
+    
 }
 int parse_length(htsFile *fp)
 {
@@ -90,16 +91,14 @@ int parse_args(int argc, char **argv)
 {
     
     int i;    
-    kstring_t command = KSTRING_INIT;
+
     for ( i = 0; i < argc; ++i ) {
         if ( i )
-            kputc(' ', &command);
-        kputs(argv[i], &command);
+            kputc(' ', &args.command);
+        kputs(argv[i], &args.command);
     }
     if ( argc == 0 )
         return usage();
-    if ( command.l )
-        free(command.s);
     
     for ( i = 0; i < argc; ) {    
         const char *a = argv[i++];
@@ -153,6 +152,7 @@ void merge_probes()
                 kputc('\n', &string);
                 printf("%s", string.s);
             } else if ( i == args.n_files-1 && string.s[1] != '#') {
+                printf("##Merge command=%s\n", args.command.s);
                 kputc('\n', &string);
                 printf("%s", string.s);
             }
