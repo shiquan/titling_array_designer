@@ -1,11 +1,11 @@
-PROG=    generate_oligos
+PROG=    generate_oligos merge_oligos
 
-all: $(PROG)
+all: mk $(PROG)
 
 CC       = gcc
-CFLAGS   = -g -Wall -Wc++-compat -O0
+CFLAGS   = -Wall -Wc++-compat -O2
 DFLAGS   = -lz -lhts
-
+INCLUDES = -I . -I src/
 
 all:$(PROG)
 
@@ -20,15 +20,18 @@ endif
 version.h:
 	echo '#define OLIGOS_VERSION "$(PACKAGE_VERSION)"' > $@
 
-
+mk:
+	-mkdir bin
 
 generate_oligos: version.h
-	$(CC) $(CFLAGS) $(INCLUDES) -o $@ $(DFLAGS) bed_utils.c generate_oligos.c
+	$(CC) $(CFLAGS) $(INCLUDES) -o bin/$@ $(DFLAGS) src/bed_utils.c src/generate_oligos.c src/faidx.c src/kstring.c src/bgzf.c
 
+merge_oligos:
+	$(CC) $(CFLAGS) $(INCLUDES) -o bin/$@ $(DFLAGS) src/merge_oligos.c  src/kstring.c src/bgzf.c
 
 clean: 
-	-rm -f gmon.out *.o *~ $(PROG) version.h 
-	-rm -rf *.dSYM plugins/*.dSYM test/*.dSYM *.bed
+	-rm -f gmon.out *.o *~ $(PROG) version.h  
+	-rm -rf *.dSYM plugins/*.dSYM test/*.dSYM *.bed bin
 
 tags:
 	ctags -f TAGS *.[ch] plugins/*.[ch]

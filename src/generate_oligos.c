@@ -1,7 +1,5 @@
-//
-//
-//
-// Here, I defined probe is a set of oligonucletides. One oligo is a DNA sequence.
+// generate_oligo.c - program to generate oligonucletides to capture target genome.
+// 
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/stat.h>

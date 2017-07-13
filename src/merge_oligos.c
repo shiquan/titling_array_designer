@@ -1,9 +1,8 @@
 #include "utils.h"
-#include "file.h"
-#include "htslib/kstring.h"
-#include "htslib/bgzf.h"
+#include "kstring.h"
+#include "bgzf.h"
 #include "zlib.h"
-#include "htslib/kseq.h"
+#include "kseq.h"
 
 #define KSTRING_INIT {0, 0, 0}
 
@@ -19,7 +18,7 @@ int usage()
 struct args {
     int n_files;
     int m_files;
-    htsFile **fp;
+    BGZF **fp;
     kstring_t command;
     int oligo_length;
     // 0 on default, 1 on header only, 2 on no header
@@ -33,10 +32,10 @@ struct args {
     .header_flag = 0,
 };
 
-int read_comment_line(htsFile *fp, kstring_t *string)
+int read_comment_line(BGZF *fp, kstring_t *string)
 {
     for ( ;; ) {
-        if ( hts_getline(fp, KS_SEP_LINE, string) < 0 )
+        if ( bgzf_getline(fp, KS_SEP_LINE, string) < 0 )
             return 1;
         if ( string->l == 0 )
             continue;
@@ -46,10 +45,10 @@ int read_comment_line(htsFile *fp, kstring_t *string)
     }
     return 0;
 }
-int read_line(htsFile *fp, kstring_t *string)
+int read_line(BGZF *fp, kstring_t *string)
 {
     for ( ;; ) {
-        if ( hts_getline(fp, KS_SEP_LINE, string) < 0 )
+        if ( bgzf_getline(fp, KS_SEP_LINE, string) < 0 )
             return 1;
         if ( string->l == 0 )
             continue;
@@ -63,17 +62,17 @@ void release_memory()
 {
     int i;
     for ( i = 0; i < args.n_files; ++i )
-        hts_close(args.fp[i]);
+        bgzf_close(args.fp[i]);
     free(args.fp);
     if ( args.command.l )
         free(args.command.s);
     
 }
-int parse_length(htsFile *fp)
+int parse_length(BGZF *fp)
 {
     kstring_t string = KSTRING_INIT;
     int length = 0;
-    if ( file_seek(fp, 0, SEEK_SET) < 0 )
+    if ( bgzf_seek(fp, 0, SEEK_SET) < 0 )
         return 0;
     
     for ( ;; ) {
@@ -111,9 +110,9 @@ int parse_args(int argc, char **argv)
         }
         if ( args.m_files == args.n_files ) {
             args.m_files += 2;
-            args.fp = (htsFile**)realloc(args.fp, args.m_files * sizeof(htsFile*));
+            args.fp = (BGZF**)realloc(args.fp, args.m_files * sizeof(BGZF*));
         }
-        args.fp[args.n_files] = hts_open(a, "r");
+        args.fp[args.n_files] = bgzf_open(a, "r");
         if ( args.fp[args.n_files] == NULL ) {
             warnings("%s : %s", a, strerror(errno));
             continue;
@@ -138,8 +137,8 @@ void merge_probes()
     kstring_t string = KSTRING_INIT;
     // Generate header.
     for ( i = 0; i < args.n_files; ++i ) {
-        if ( file_seek(args.fp[i], 0, SEEK_SET) < 0 )
-            continue;
+        //if ( bgzf_seek(args.fp[i], 0, SEEK_SET) < 0 )
+        //   continue;
         for ( ;; ) {
             if ( read_comment_line(args.fp[i], &string) )
                 break;
@@ -160,7 +159,7 @@ void merge_probes()
     }
     // Generate body.
     for ( i = 0; i < args.n_files; ++i ) {
-        if ( file_seek(args.fp[i], 0, SEEK_SET) < 0 )
+        if ( bgzf_seek(args.fp[i], 0, SEEK_SET) < 0 )
             continue;
         for ( ;; ) {
             if ( read_line(args.fp[i], &string) )
