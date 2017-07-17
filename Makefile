@@ -21,7 +21,7 @@ version.h:
 	echo '#define OLIGOS_VERSION "$(PACKAGE_VERSION)"' > $@
 
 mk:
-	-mkdir bin
+	-mkdir -p bin
 
 generate_oligos: version.h
 	$(CC) $(CFLAGS) $(INCLUDES) -o bin/$@ $(DFLAGS) src/bed_utils.c src/generate_oligos.c src/faidx.c src/kstring.c src/bgzf.c

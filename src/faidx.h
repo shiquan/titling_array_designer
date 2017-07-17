@@ -48,7 +48,7 @@ extern "C" {
 	  @param  fn  FASTA file name
 	  @discussion File "fn.fai" will be generated.
 	 */
-	void fai_build(const char *fn);
+    int fai_build(const char *fn);
 
 	/*!
 	  @abstract    Distroy a faidx_t struct.

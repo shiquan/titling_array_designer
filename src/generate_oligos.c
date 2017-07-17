@@ -4,10 +4,10 @@
 #include <stdlib.h>
 #include <sys/stat.h>
 #include <unistd.h>
-#include "htslib/kstring.h"
-#include "htslib/khash.h"
-#include "htslib/faidx.h"
-#include "htslib/kseq.h"
+#include "kstring.h"
+#include "khash.h"
+#include "faidx.h"
+#include "kseq.h"
 #include "utils.h"
 #include "bed_utils.h"
 #include "version.h"
@@ -169,7 +169,7 @@ int usage()
 	    "            for help information.\n"
 	    "Version: %s\n"
 	    "Bugs report: shiquan@genomics.cn\n"
-	    "Homepage: https://github.com/shiquan\n", OLIGOS_VERSION
+	    "Homepage: https://github.com/shiquan/titling_array_designer\n", OLIGOS_VERSION
 	);
     return 1;
 }
@@ -216,7 +216,7 @@ int parse_args(int argc, char **argv)
 	
 	if ( var != 0 ) {
 	    if (i == argc) {
-		error_print("Missing an argument after %s.", a);
+		error_print("Miss an argument after %s.", a);
 		return -2;
 	    }
 	    *var = argv[i++];
@@ -231,7 +231,7 @@ int parse_args(int argc, char **argv)
     }
 
     if (quiet_mode == 0) {
-	LOG_print("The program was compiled at %s %s by %s.", __DATE__, __TIME__, getenv("USER"));
+	LOG_print("Version %s.", OLIGOS_VERSION);
 	LOG_print("Args: %s", args.commands.s);
     }
     if (args.project_name == 0) {

@@ -155,7 +155,7 @@ void fai_destroy(faidx_t *fai)
 	free(fai);
 }
 
-void fai_build(const char *fn)
+int fai_build(const char *fn)
 {
 	char *str;
 	RAZF *rz;
@@ -164,15 +164,20 @@ void fai_build(const char *fn)
 	str = (char*)calloc(strlen(fn) + 5, 1);
 	sprintf(str, "%s.fai", fn);
 	rz = razf_open(fn, "r");
-	assert(rz);
+        if (rz == NULL )
+            return -1;
+	// assert(rz);
 	fai = fai_build_core(rz);
 	razf_close(rz);
 	fp = fopen(str, "w");
-	assert(fp);
+	// assert(fp);
+        if (fp == NULL )
+            return -1;
 	fai_save(fai, fp);
 	fclose(fp);
 	free(str);
 	fai_destroy(fai);
+        return 0;
 }
 
 faidx_t *fai_load(const char *fn)
