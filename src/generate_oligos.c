@@ -38,6 +38,9 @@ struct args {
     // defaulf oligo length is 50 now, if set to 0 dynamic mode will enabled
     // 0 for dynamic design (50b - 90b)
     int oligo_length;
+    // temp parameters for dynamic design mode
+    int min_oligo_length;
+    int max_oligo_length;
     // pesudo sequences to fill short oligos, because machine can only synthesis equal length oligos
     //const char *fork_sequence;
     // origal target bed file auxiliary
@@ -81,6 +84,8 @@ struct args args = {
     .common_variants_fname = 0,
     .output_dir = 0,
     .oligo_length = 50,
+    .min_oligo_length = 0,
+    .max_oligo_length = 0,
     .target_regions = 0,
     .design_regions = 0,
     //.uniq_data_tbx = 0,
@@ -159,6 +164,10 @@ int usage()
 	    "            database of non-repeats, or user pre-defined designable regions.\n"
 	    "  -l, -length [50]\n"
 	    "            pre-defined oligo length, usually from 50 base to 90 base, set 0 for dynamic design.\n"
+            "  -min INT \n"
+            "            minimal oligo length for dynamic design mode\n"
+            "  -max INT \n"
+            "            maximal oligo length for dynamic design mode\n"
 	    "  -d, -depth [2]\n"
 	    "            oligo depths pre base, increase this value will increase the dense of oligos.\n"
 	    "  -p, -project [string]\n"
@@ -186,6 +195,8 @@ int parse_args(int argc, char **argv)
     }
     const char *length = 0;
     const char *depth = 0;
+    const char *max_oligo_length = 0;
+    const char *min_oligo_length = 0;
     for (i = 0; i < argc; ) {
 	const char *a = argv[i++];
 	if ( strcmp(a, "-h") == 0 || strcmp(a, "-help") == 0 )
@@ -213,6 +224,10 @@ int parse_args(int argc, char **argv)
 	    var = &length;
 	else if ( (strcmp(a, "-d") == 0 || strcmp(a, "-depth") == 0) && depth == 0 )
 	    var = &depth;
+        else if ( (strcmp(a, "-min") == 0) && min_oligo_length == NULL )
+            var = &min_oligo_length;
+        else if ( (strcmp(a, "-max") == 0 ) && max_oligo_length == NULL )
+            var = &max_oligo_length;                  
 	
 	if ( var != 0 ) {
 	    if (i == argc) {
@@ -272,6 +287,15 @@ int parse_args(int argc, char **argv)
 	    LOG_print("No common variantions datasets specified.");
     } else {
 	args.variants_skip_required = 1;
+    }
+    if ( min_oligo_length ) {
+        args.min_oligo_length = str2int(min_oligo_length);
+        set_oligo_length_min(args.min_oligo_length);
+    }
+
+    if ( max_oligo_length ) {
+        args.max_oligo_length = str2int(max_oligo_length);
+        set_oligo_length_max(args.max_oligo_length);
     }
     if (length != 0) {
 	args.oligo_length = atoi(length);
