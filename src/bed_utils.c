@@ -185,7 +185,7 @@ static int bed_fill(struct bedaux *bed)
 
     // reghash_type *hash = (reghash_type*)bed->hash;
     kstring_t string = KSTRING_INIT;
-    // int dret;
+    //int dret;
     struct bed_line line = BED_LINE_INIT;
 //    while ( ks_getuntil(bed->ks, 2, &string, &dret) >= 0) {
     while ( bgzf_getline(bed->fp, '\n', &string) >= 0 ) {
