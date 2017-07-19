@@ -1,8 +1,8 @@
 #include "utils.h"
-#include "kstring.h"
-#include "bgzf.h"
+#include "htslib/kstring.h"
+#include "htslib/bgzf.h"
 #include "zlib.h"
-#include "kseq.h"
+#include "htslib/kseq.h"
 
 #define KSTRING_INIT {0, 0, 0}
 

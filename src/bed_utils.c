@@ -6,6 +6,7 @@
 #include "htslib/hts.h"
 #include "htslib/khash.h"
 #include "htslib/ksort.h"
+#include <string.h>
 
 // for very large file, there might be a memory overflow problem to keep all raw data, so here design a read-and-hold
 // structure to read some parts of bed file into memory pool, sort and merge cached data first and then load remain 
@@ -182,14 +183,14 @@ static int bed_fill(struct bedaux *bed)
   //if (bed->flag & bed_bit_empty) return 1;
   //if (bed->flag ^ bed_bit_cached) return 1;
 
-    reghash_type *hash = (reghash_type*)bed->hash;
+    // reghash_type *hash = (reghash_type*)bed->hash;
     kstring_t string = KSTRING_INIT;
-    int dret;
+    // int dret;
     struct bed_line line = BED_LINE_INIT;
 //    while ( ks_getuntil(bed->ks, 2, &string, &dret) >= 0) {
     while ( bgzf_getline(bed->fp, '\n', &string) >= 0 ) {
-	int start = -1;
-	int end = -1;
+	// int start = -1;
+	// int end = -1;
 	bed->line++;
 	if ( string.l == 0 || string.s[0] == '\n' ) {
 	    warnings("%s : line %d is empty. skip ..", bed->fname, bed->line);
@@ -276,14 +277,14 @@ void bed_cache_update(struct bedaux *bed)
 }
 int bed_fill_bigdata(struct bedaux *bed)
 {
-    reghash_type *hash = (reghash_type*)bed->hash;
+    // reghash_type *hash = (reghash_type*)bed->hash;
     kstring_t string = KSTRING_INIT;
-    int dret;
+    // int dret;
     struct bed_line line = BED_LINE_INIT;
     //while ( ks_getuntil(bed->ks, 2, &string, &dret) >= 0) {
     while ( bgzf_getline(bed->fp, '\n', &string) >= 0 ) {
-	int start = -1;
-	int end = -1;
+	// int start = -1;
+	// int end = -1;
 	bed->line++;
 	if ( string.l == 0 || string.s[0] ) {
 	    warnings("%s : line %d is empty. skip ..", bed->fname, bed->line);

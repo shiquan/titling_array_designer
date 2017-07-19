@@ -100,7 +100,7 @@ struct args args = {
 
 static int oligo_length_minimal = 50;
 static int oligo_length_maxmal = 120;
-static int oligo_length_usual  = 90;
+// static int oligo_length_usual  = 90;
 static char *get_version(void)
 {
     return OLIGOS_VERSION;
@@ -624,13 +624,15 @@ void generate_oligos()
     // ksprintf(&header, "##oligo_number=%u\n", args.probes_number); // should always be 0
     ksprintf(&header, "##Command=%s\n", args.commands.s);    
     kputs("#chrom\tstart\tend\tseq_length\tsequence\tn_block\tstarts\tends\trepeat_ratio\tGC_content\trank\n", &header);
-    bgzf_write(fp, header.s, header.l);
+    if ( bgzf_write(fp, header.s, header.l) != header.l )
+        error ( "Write error : %d.", fp->errcode);
     free(header.s);
     
     while (1) {	
 	if ( generate_oligos_core() ) break;	
 	if ( args.string.l ) {
-	    bgzf_write(fp , args.string.s, args.string.l);
+	    if ( bgzf_write(fp , args.string.s, args.string.l) != args.string.l)
+                error("Writer error : %d.", fp->errcode);
 	    args.string.l = 0;
 	}	
     }    

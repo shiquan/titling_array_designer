@@ -9,7 +9,6 @@
 #include <zlib.h>
 #include "htslib/kstring.h"
 #include "htslib/tbx.h"
-//#include "htslib/kseq.h"
 #include "htslib/bgzf.h"
 
 #ifndef KSTRINT_INIT
