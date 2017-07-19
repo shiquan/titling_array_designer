@@ -35,7 +35,12 @@ endif
 version.h:
 	echo '#define OLIGOS_VERSION "$(PACKAGE_VERSION)"' > $@
 
-mk: clean $(HTSLIB)
+.SUFFIXES:.c .o
+.PHONY:all clean clean-all clean-plugins distclean install lib tags test testclean force plugins docs
+
+force:
+
+mk: clean $(Htslib)
 	-mkdir -p bin
 
 generate_oligos: version.h
