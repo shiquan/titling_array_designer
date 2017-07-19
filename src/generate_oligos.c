@@ -4,10 +4,10 @@
 #include <stdlib.h>
 #include <sys/stat.h>
 #include <unistd.h>
-#include "kstring.h"
-#include "khash.h"
-#include "faidx.h"
-#include "kseq.h"
+#include "htslib/kstring.h"
+#include "htslib/khash.h"
+#include "htslib/faidx.h"
+#include "htslib/kseq.h"
 #include "utils.h"
 #include "bed_utils.h"
 #include "version.h"
@@ -307,7 +307,8 @@ int parse_args(int argc, char **argv)
     // assume input is 0 based bed file.
     set_based_0();
     
-    bed_read(args.target_regions, args.input_bed_fname);
+    if ( bed_read(args.target_regions, args.input_bed_fname) )
+        error("Empty file, %s", args.input_bed_fname);
 
     // bed will merge auto.
     // for some target regions, usually short than ROUND_SIZE, expand to ROUND_SIZE.

@@ -186,7 +186,8 @@ static int bed_fill(struct bedaux *bed)
     kstring_t string = KSTRING_INIT;
     int dret;
     struct bed_line line = BED_LINE_INIT;
-    while ( ks_getuntil(bed->ks, 2, &string, &dret) >= 0) {
+//    while ( ks_getuntil(bed->ks, 2, &string, &dret) >= 0) {
+    while ( bgzf_getline(bed->fp, '\n', &string) >= 0 ) {
 	int start = -1;
 	int end = -1;
 	bed->line++;
@@ -209,7 +210,7 @@ static int bed_fill(struct bedaux *bed)
     }
     if ( string.m ) free(string.s);
     bgzf_close(bed->fp);
-    ks_destroy(bed->ks);
+        // ks_destroy(bed->ks);
     return 0;
 }
 static void chrom_sort(struct bed_chrom *chrom)
@@ -279,7 +280,8 @@ int bed_fill_bigdata(struct bedaux *bed)
     kstring_t string = KSTRING_INIT;
     int dret;
     struct bed_line line = BED_LINE_INIT;
-    while ( ks_getuntil(bed->ks, 2, &string, &dret) >= 0) {
+    //while ( ks_getuntil(bed->ks, 2, &string, &dret) >= 0) {
+    while ( bgzf_getline(bed->fp, '\n', &string) >= 0 ) {
 	int start = -1;
 	int end = -1;
 	bed->line++;
@@ -306,7 +308,7 @@ int bed_fill_bigdata(struct bedaux *bed)
     }
     if ( string.m ) free(string.s);
     bgzf_close(bed->fp);
-    ks_destroy(bed->ks);    
+//    ks_destroy(bed->ks);    
     return 0;
 }
 int bed_read(struct bedaux *bed, const char *fname)
@@ -315,23 +317,32 @@ int bed_read(struct bedaux *bed, const char *fname)
     bed->fp = bgzf_open(fname, "r");
     if (bed->fp == 0)
 	error("failed to open %s : %s.", fname, strerror(errno));
-    bgzf_seek(bed->fp, 0L, SEEK_END);
-    uint64_t size = bgzf_tell(bed->fp);
-
+    // int ret = bgzf_seek(bed->fp, 0L, SEEK_END);
+    // uint64_t size = bgzf_tell(bed->fp);
     // go back to file begin    
-    bgzf_seek(bed->fp, 0L, SEEK_SET);
-    bed->ks = ks_init(bed->fp);
+//    bgzf_seek(bed->fp, 0L, SEEK_SET);
+    int read_flag = 1;
+    /* if ( ret ) { */
+    /*     read_flag = 1; */
+    /* } else {                 */
+    /*     if ( size < file_size_limit ) { */
+    /*         read_flag = 1; */
+    /*     } */
+    /* } */
+    // bed->ks = ks_init(bed->fp);
     bed->fname = (char*)fname;
     // remove empty flag
     bed->flag &= ~bed_bit_empty;
-   // small file, cached whole file
-    if ( size < file_size_limit ) {
-	bed_fill(bed);
+    // small file, cacched whole file
+    if ( read_flag ) {
+	bed_fill(bed);        
 	bed->flag &= ~bed_bit_cached;
 	// file is empty, set empty flag
-	if ( bed->length == 0 )
+	if ( bed->line == 0 ) {
 	    bed->flag |= bed_bit_empty;	
-	return 1;
+            return 1;
+        }
+        return 0;
     }
 
     // for huge file, just hold the handler
@@ -366,7 +377,7 @@ struct bed_chrom *bed_chrom_dup(struct bed_chrom *_chm)
 struct bedaux *bed_dup(struct bedaux *_bed)
 {
     if ( _bed->flag & bed_bit_cached )
-	error("[bed_dup]bedaux  should be filledTrying to fork a cached bed struct ..");
+	error("[bed_dup]bedaux  should be filled. Trying to fork a cached bed struct ..");
     struct bedaux *bed = bedaux_init();
     bed->flag = _bed->flag;
     bed->fname = _bed->fname;
@@ -481,6 +492,10 @@ void bed_flktrim(struct bedaux *bed, int left, int right)
 }
 void bed_round(struct bedaux *bed, int round_length)
 {
+    if ( bed->flag & bed_bit_cached ) {
+        bed_fill(bed);
+        bed->flag ^= bed_bit_cached;
+    }
     uint64_t length = 0;
     int i, j;
     for (i = 0; i < bed->l_names; ++i) {

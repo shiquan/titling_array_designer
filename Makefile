@@ -3,11 +3,25 @@ PROG=    generate_oligos merge_oligos
 all: mk $(PROG)
 
 CC       = gcc
-CFLAGS   = -Wall -Wc++-compat -O2
-DFLAGS   = -lz -lhts
-INCLUDES = -I . -I src/
+CFLAGS   = -Wall -Wc++-compat -O0 -g
+DFLAGS   = -lz 
+INCLUDES = -I . -I htslib-1.3.1/
 
 all:$(PROG)
+
+HTSDIR = htslib-1.3.1
+include $(HTSDIR)/htslib.mk
+HTSLIB = $(HTSDIR)/libhts.a
+BGZIP  = $(HTSDIR)/bgzip
+TABIX  = $(HTSDIR)/tabix
+HTSLIB_LDFLAGS = $(HTSLIB_static_LDFLAGS)
+HTSLIB_LIBS = $(HTSLIB_static_LIBS)
+
+ifeq "$(shell uname -s)" "Darwin"
+DYNAMIC_FLAGS = -Wl,-export_dynamic
+else
+DYNAMIC_FLAGS = -rdynamic
+endif
 
 # See htslib/Makefile
 PACKAGE_VERSION = 0.01
@@ -20,14 +34,14 @@ endif
 version.h:
 	echo '#define OLIGOS_VERSION "$(PACKAGE_VERSION)"' > $@
 
-mk:
+mk: $(HTSLIB)
 	-mkdir -p bin
 
 generate_oligos: version.h
-	$(CC) $(CFLAGS) $(INCLUDES) -o bin/$@ $(DFLAGS) src/bed_utils.c src/generate_oligos.c src/faidx.c src/kstring.c src/bgzf.c
+	$(CC) $(CFLAGS) $(INCLUDES) -o bin/$@ $(DFLAGS) src/bed_utils.c src/generate_oligos.c $(HTSLIB)
 
 merge_oligos:
-	$(CC) $(CFLAGS) $(INCLUDES) -o bin/$@ $(DFLAGS) src/merge_oligos.c  src/kstring.c src/bgzf.c
+	$(CC) $(CFLAGS) $(INCLUDES) -o bin/$@ $(DFLAGS) src/merge_oligos.c  $(HTSLIB)
 
 clean: 
 	-rm -f gmon.out *.o *~ $(PROG) version.h  

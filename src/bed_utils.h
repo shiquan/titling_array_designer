@@ -9,7 +9,7 @@
 #include <zlib.h>
 #include "htslib/kstring.h"
 #include "htslib/tbx.h"
-#include "htslib/kseq.h"
+//#include "htslib/kseq.h"
 #include "htslib/bgzf.h"
 
 #ifndef KSTRINT_INIT
@@ -19,7 +19,7 @@
 #define MEMPOOL_LINE 10000 // todo: memory management
 
 // read file handler
-KSTREAM_INIT(BGZF*, bgzf_read, 8193);
+//KSTREAM_INIT(BGZF*, bgzf_read, 8193);
 
 // flag of bed_file struct
 // bits offset rule : right first
@@ -64,7 +64,7 @@ struct bedaux {
     int i;
     // For big file, read first part into memory first and merge and read other parts.
     BGZF *fp; 
-    kstream_t *ks;
+    //kstream_t *ks;
     uint32_t line;
     // used by bed_fill_bigdata(), if regions are greater than block size, merge cached regions and increase block_size, 
     uint32_t block_size;
