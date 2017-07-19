@@ -5,7 +5,7 @@ all: mk $(PROG)
 CC       = gcc
 CFLAGS   = -Wall -Wc++-compat -O0 -g
 DFLAGS   = -lz 
-INCLUDES = -I . -I htslib-1.3.1/
+INCLUDES = -I . -I htslib-1.3.1/ -I src
 
 all:$(PROG)
 
