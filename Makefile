@@ -35,7 +35,7 @@ endif
 version.h:
 	echo '#define OLIGOS_VERSION "$(PACKAGE_VERSION)"' > $@
 
-mk: $(HTSLIB)
+mk: clean $(HTSLIB)
 	-mkdir -p bin
 
 generate_oligos: version.h
@@ -45,7 +45,7 @@ generate_oligos_debug: version.h
 	$(CC) $(CFLAGS_DEBUG) $(INCLUDES) -o bin/$@ $(DFLAGS) src/bed_utils.c src/generate_oligos.c $(HTSLIB)
 
 merge_oligos:
-	$(CC) $(CFLAGS) $(INCLUDES) -o bin/$@ $(DFLAGS) src/merge_oligos.c  $(HTSLI)
+	$(CC) $(CFLAGS) $(INCLUDES) -o bin/$@ $(DFLAGS) src/merge_oligos.c  $(HTSLIB)
 
 debug: mk generate_oligos_debug
 
