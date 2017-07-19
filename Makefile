@@ -44,10 +44,10 @@ mk: clean $(Htslib)
 	-mkdir -p bin
 
 generate_oligos: version.h
-	$(CC) $(CFLAGS) $(INCLUDES) -o bin/$@ $(DFLAGS) src/bed_utils.c src/generate_oligos.c $(HTSLIB)
+	$(CC) $(CFLAGS) $(INCLUDES) -o bin/$@ $(DFLAGS) src/bed_utils.c src/number.c src/generate_oligos.c $(HTSLIB)
 
 generate_oligos_debug: version.h
-	$(CC) $(CFLAGS_DEBUG) $(INCLUDES) -o bin/$@ $(DFLAGS) src/bed_utils.c src/generate_oligos.c $(HTSLIB)
+	$(CC) $(CFLAGS_DEBUG) $(INCLUDES) -o bin/$@ $(DFLAGS) src/bed_utils.c src/number.c src/generate_oligos.c $(HTSLIB)
 
 merge_oligos:
 	$(CC) $(CFLAGS) $(INCLUDES) -o bin/$@ $(DFLAGS) src/merge_oligos.c  $(HTSLIB)

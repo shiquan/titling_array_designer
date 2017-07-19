@@ -9,6 +9,7 @@
 #include "htslib/faidx.h"
 #include "htslib/kseq.h"
 #include "utils.h"
+#include "number.h"
 #include "bed_utils.h"
 #include "version.h"
 
