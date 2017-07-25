@@ -479,7 +479,7 @@ int bubble_design(int cid, int last_start, int last_end, int start, int end)
             free(head);
             free(tail);
             float repeat = repeat_ratio(string.s, string.l);
-            if ( repeat == -1 )
+            if ( repeat < 0 )
                 error("%s, %d, %d", args.design_regions->names[cid], start_pos, end_pos);
             
             float gc = calculate_GC(string.s, string.l);
