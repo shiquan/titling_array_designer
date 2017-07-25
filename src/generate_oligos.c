@@ -405,8 +405,9 @@ float repeat_ratio(char *seq, int length)
 		break;
 	    case 'N':
 	    default:
-		error("There is a N is seq %s.", seq);
-		break;
+		error_print("There is a N in seq %s.", seq);
+                return -1;
+		//break;
 	}
     }
     return (float)j/length;
@@ -478,6 +479,9 @@ int bubble_design(int cid, int last_start, int last_end, int start, int end)
             free(head);
             free(tail);
             float repeat = repeat_ratio(string.s, string.l);
+            if ( report == -1 )
+                error("%s, %d, %d", args.design_regions->names[cid], start_pos, end_pos);
+            
             float gc = calculate_GC(string.s, string.l);
             ksprintf(&args.string, "%s\t%d\t%d\t%d\t%s\t%d\t%d,%d,\t%d,%d,\t%.2f\t%.2f\t%d\n", args.design_regions->names[cid], start_pos, end_pos, oligo_length, string.s, 2, start_pos, start, last_end, end_pos, repeat, gc, rank);
             args.probes_number ++;
