@@ -1,5 +1,6 @@
 // generate_oligo.c - program to generate oligonucletides to capture target genome.
-// 
+// todo : avoid Alu-repeat GCGCGGTGGCTCACGCCTGTAATCCCAGCACTTTGGGAGGCCGAGGCGGG
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/stat.h>

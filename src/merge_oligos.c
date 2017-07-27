@@ -35,7 +35,7 @@ struct args {
 int read_comment_line(BGZF *fp, kstring_t *string)
 {
     for ( ;; ) {
-        if ( bgzf_getline(fp, KS_SEP_LINE, string) < 0 )
+        if ( bgzf_getline(fp, '\n', string) < 0 )
             return 1;
         if ( string->l == 0 )
             continue;
@@ -48,7 +48,7 @@ int read_comment_line(BGZF *fp, kstring_t *string)
 int read_line(BGZF *fp, kstring_t *string)
 {
     for ( ;; ) {
-        if ( bgzf_getline(fp, KS_SEP_LINE, string) < 0 )
+        if ( bgzf_getline(fp, '\n', string) < 0 )
             return 1;
         if ( string->l == 0 )
             continue;
