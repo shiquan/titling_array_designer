@@ -137,8 +137,8 @@ void merge_probes()
     kstring_t string = KSTRING_INIT;
     // Generate header.
     for ( i = 0; i < args.n_files; ++i ) {
-        //if ( bgzf_seek(args.fp[i], 0, SEEK_SET) < 0 )
-        //   continue;
+        if ( bgzf_seek(args.fp[i], 0, SEEK_SET) < 0 )
+            continue;
         for ( ;; ) {
             if ( read_comment_line(args.fp[i], &string) )
                 break;
