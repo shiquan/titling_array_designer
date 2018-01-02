@@ -25,13 +25,8 @@ DYNAMIC_FLAGS = -rdynamic
 endif
 
 # See htslib/Makefile
-PACKAGE_VERSION = 0.01
-ifneq "$(wildcard .git)" ""
-PACKAGE_VERSION := $(shell git describe --always --dirty)
-DOC_VERSION :=  $(shell git describe --always)+
-DOC_DATE := $(shell date +'%Y-%m-%d %R %Z')
-version.h: $(if $(wildcard version.h),$(if $(findstring "$(PACKAGE_VERSION)",$(shell cat version.h)),,force))
-endif
+PACKAGE_VERSION := $(shell git describe --tags)
+
 version.h:
 	echo '#define OLIGOS_VERSION "$(PACKAGE_VERSION)"' > $@
 
