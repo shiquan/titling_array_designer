@@ -342,6 +342,8 @@ int parse_args(int argc, char **argv)
     if ( bed_read(args.target_regions, args.input_bed_fname) )
         error("Empty file, %s", args.input_bed_fname);
 
+    bed_merge(args.target_regions);
+    
     // bed will merge auto.
     // for some target regions, usually short than ROUND_SIZE, expand to ROUND_SIZE.
     // the reason we define the expand size to ROUND_SIZE is our oligo length usually smaller than ROUND_SIZE. so
@@ -705,11 +707,11 @@ void export_summary_reports()
     kputs("predict_regions.bed", &path);
     bed_save(args.predict_regions, path.s);
 
-    fprintf(stdout, "Targed regions : %u\n", args.target_regions->regions);
-    fprintf(stdout, "Targed sizes : %"PRIu64"\n", args.target_regions->length);
+    fprintf(stdout, "Target regions : %u\n", args.target_regions->regions);
+    fprintf(stdout, "Target sizes : %"PRIu64"\n", args.target_regions->length);
     fprintf(stdout, "Designed regions : %u\n", args.design_regions->regions);
     fprintf(stdout, "Designed sizes : %"PRIu64"\n", args.design_regions->length);
-    fprintf(stdout, "Designed coverage : %.2fx", args.depth);
+    fprintf(stdout, "Designed coverage : %.2fx\n", args.depth);
     //fprintf(stdout, "Coverage of target regions :  %.3f\n", );
     fprintf(stdout, "Total number of oligos : %u\n", args.probes_number);
     if ( args.oligo_length == 0 )
