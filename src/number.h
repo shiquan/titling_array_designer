@@ -2,7 +2,7 @@
 #define NUMBER_HEADER
 #include <stdio.h>
 #include <stdlib.h>
-
+#include <inttypes.h>
 extern int get_numbase(const char *s);
 extern int get_numbase_l(const char *s, int l);
 extern int is_ieee_magic_val(const char *val);
