@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <ctype.h>
 #include "htslib/kstring.h"
 #include "htslib/khash.h"
 #include "htslib/faidx.h"
@@ -42,7 +43,10 @@ struct args {
     int oligo_length;
     // temp parameters for dynamic design mode
     int min_oligo_length;
+    uint64_t n_min;
     int max_oligo_length;
+    uint64_t n_max;
+    
     // pesudo sequences to fill short oligos, because machine can only synthesis equal length oligos
     //const char *fork_sequence;
     // origal target bed file auxiliary
@@ -87,7 +91,9 @@ struct args args = {
     .output_dir = 0,
     .oligo_length = 50,
     .min_oligo_length = 0,
+    .n_min = 0,
     .max_oligo_length = 0,
+    .n_max = 0,
     .target_regions = 0,
     .design_regions = 0,
     //.uniq_data_tbx = 0,
@@ -291,12 +297,12 @@ int parse_args(int argc, char **argv)
 	args.variants_skip_required = 1;
     }
     if ( min_oligo_length ) {
-        args.min_oligo_length = str2int(min_oligo_length);
+        args.min_oligo_length = str2int((char*)min_oligo_length);
         set_oligo_length_min(args.min_oligo_length);
     }
 
     if ( max_oligo_length ) {
-        args.max_oligo_length = str2int(max_oligo_length);
+        args.max_oligo_length = str2int((char*)max_oligo_length);
         set_oligo_length_max(args.max_oligo_length);
     }
     if (length != 0) {
@@ -336,6 +342,8 @@ int parse_args(int argc, char **argv)
     if ( bed_read(args.target_regions, args.input_bed_fname) )
         error("Empty file, %s", args.input_bed_fname);
 
+    bed_merge(args.target_regions);
+    
     // bed will merge auto.
     // for some target regions, usually short than ROUND_SIZE, expand to ROUND_SIZE.
     // the reason we define the expand size to ROUND_SIZE is our oligo length usually smaller than ROUND_SIZE. so
@@ -496,10 +504,15 @@ int bubble_design(int cid, int last_start, int last_end, int start, int end)
             ksprintf(&args.string, "%s\t%d\t%d\t%d\t%s\t%d\t%d,\t%d,\t%.2f\t%.2f\t%d\n", args.design_regions->names[cid], start_pos, end_pos, oligo_length, string.s, 1, start_pos, end_pos, repeat, gc, rank);
             args.probes_number ++;
         }
+
         if(string.l != oligo_length) {
             fprintf(stderr, "%s\t%d\t%d\t%d\t%s\t%d\t%d,%d,\t%d,%d,\n", args.design_regions->names[cid], start_pos, end_pos, oligo_length, string.s, 1, start_pos, start, last_end, end_pos);
             exit(1);
         }
+        
+        if ( oligo_length == args.min_oligo_length ) args.n_min++;
+        else if ( oligo_length == args.max_oligo_length ) args.n_max++;
+
         string.l = 0;
     }
     free(string.s);
@@ -543,6 +556,11 @@ void titling_design(int cid, int start, int end)
 	float gc = calculate_GC(seq, oligo_length);
 	ksprintf(&args.string, "%s\t%d\t%d\t%d\t%s\t%d\t%d,\t%d,\t%.2f\t%.2f\t%d\n", args.design_regions->names[cid], start_pos, start_pos + oligo_length, oligo_length, seq, 1, start_pos, start_pos+oligo_length, repeat, gc, rank);
 	args.probes_number ++;
+
+        if ( oligo_length == args.min_oligo_length ) args.n_min++;
+        else if ( oligo_length == args.max_oligo_length ) args.n_max++;
+
+
         free(seq);
     }
 }
@@ -689,6 +707,17 @@ void export_summary_reports()
     kputs("predict_regions.bed", &path);
     bed_save(args.predict_regions, path.s);
 
+    fprintf(stdout, "Target regions : %u\n", args.target_regions->regions);
+    fprintf(stdout, "Target sizes : %"PRIu64"\n", args.target_regions->length);
+    fprintf(stdout, "Designed regions : %u\n", args.design_regions->regions);
+    fprintf(stdout, "Designed sizes : %"PRIu64"\n", args.design_regions->length);
+    fprintf(stdout, "Designed coverage : %.2fx\n", args.depth);
+    //fprintf(stdout, "Coverage of target regions :  %.3f\n", );
+    fprintf(stdout, "Total number of oligos : %u\n", args.probes_number);
+    if ( args.oligo_length == 0 )
+        fprintf(stdout, "Oligo length : %d (%"PRIu64"), %d (%"PRIu64")\n", args.min_oligo_length, args.n_min, args.max_oligo_length, args.n_max);
+    else 
+        fprintf(stdout, "Oligo length : %d \n", args.oligo_length);
     free(path.s);
 }
 void clean_memory(void)
