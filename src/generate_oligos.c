@@ -506,7 +506,7 @@ int bubble_design(int cid, int last_start, int last_end, int start, int end)
         }
 
         if (string.l != oligo_length) {
-            /fprintf(stderr, "Failed to design %s\t%d\t%d\t%d\t%s\t%d\t%d,%d,\t%d,%d,\n", args.design_regions->names[cid], start_pos, end_pos, oligo_length, string.s, 1, start_pos, start, last_end, end_pos);
+            fprintf(stderr, "Failed to design %s\t%d\t%d\t%d\t%s\t%d\t%d,%d,\t%d,%d,\n", args.design_regions->names[cid], start_pos, end_pos, oligo_length, string.s, 1, start_pos, start, last_end, end_pos);
             continue;
         }
         
