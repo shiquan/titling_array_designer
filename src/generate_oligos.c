@@ -480,8 +480,8 @@ int bubble_design(int cid, int last_start, int last_end, int start, int end)
             free(head);
             free(tail);
             float repeat = repeat_ratio(string.s, string.l);
-            if ( repeat < 0 )
-                error("%s, %d, %d", args.design_regions->names[cid], start_pos, end_pos);
+            if ( repeat < 0 ) continue;
+                //error("%s, %d, %d", args.design_regions->names[cid], start_pos, end_pos);
             
             float gc = calculate_GC(string.s, string.l);
             ksprintf(&args.string, "%s\t%d\t%d\t%d\t%s\t%d\t%d,%d,\t%d,%d,\t%.2f\t%.2f\t%d\n", args.design_regions->names[cid], start_pos, end_pos, oligo_length, string.s, 2, start_pos, start, last_end, end_pos, repeat, gc, rank);
