@@ -493,26 +493,26 @@ int bubble_design(int cid, int last_start, int last_end, int start, int end)
             
             float gc = calculate_GC(string.s, string.l);
             ksprintf(&args.string, "%s\t%d\t%d\t%d\t%s\t%d\t%d,%d,\t%d,%d,\t%.2f\t%.2f\t%d\n", args.design_regions->names[cid], start_pos, end_pos, oligo_length, string.s, 2, start_pos, start, last_end, end_pos, repeat, gc, rank);
-            args.probes_number ++;
         
         } else {
             char *seq = faidx_fetch_seq(args.fai, args.design_regions->names[cid], start_pos+1, end_pos, &l);
             kputs(seq, &string);
             free(seq);
             float repeat = repeat_ratio(string.s, string.l);
+            if ( repeat < 0 ) continue;
+            
             float gc = calculate_GC(string.s, string.l);
             ksprintf(&args.string, "%s\t%d\t%d\t%d\t%s\t%d\t%d,\t%d,\t%.2f\t%.2f\t%d\n", args.design_regions->names[cid], start_pos, end_pos, oligo_length, string.s, 1, start_pos, end_pos, repeat, gc, rank);
-            args.probes_number ++;
         }
 
-        if(string.l != oligo_length) {
-            fprintf(stderr, "%s\t%d\t%d\t%d\t%s\t%d\t%d,%d,\t%d,%d,\n", args.design_regions->names[cid], start_pos, end_pos, oligo_length, string.s, 1, start_pos, start, last_end, end_pos);
-            exit(1);
+        if (string.l != oligo_length) {
+            /fprintf(stderr, "Failed to design %s\t%d\t%d\t%d\t%s\t%d\t%d,%d,\t%d,%d,\n", args.design_regions->names[cid], start_pos, end_pos, oligo_length, string.s, 1, start_pos, start, last_end, end_pos);
+            continue;
         }
         
         if ( oligo_length == args.min_oligo_length ) args.n_min++;
         else if ( oligo_length == args.max_oligo_length ) args.n_max++;
-
+        args.probes_number ++;
         string.l = 0;
     }
     free(string.s);
@@ -553,6 +553,7 @@ void titling_design(int cid, int start, int end)
 	    continue;
 	}
 	float repeat = repeat_ratio(seq, oligo_length);
+        if ( repeat < 0 ) continue;
 	float gc = calculate_GC(seq, oligo_length);
 	ksprintf(&args.string, "%s\t%d\t%d\t%d\t%s\t%d\t%d,\t%d,\t%.2f\t%.2f\t%d\n", args.design_regions->names[cid], start_pos, start_pos + oligo_length, oligo_length, seq, 1, start_pos, start_pos+oligo_length, repeat, gc, rank);
 	args.probes_number ++;
