@@ -15,7 +15,7 @@
 #include "bed_utils.h"
 #include "version.h"
 
-#define ROUND_SIZE  100
+//#define ROUND_SIZE  100
 #define DEPTH_LIMIT  20
 
 #ifndef KSTRING_INIT
@@ -46,6 +46,9 @@ struct args {
     uint64_t n_min;
     int max_oligo_length;
     uint64_t n_max;
+
+    // round size to limit smallest region
+    int ROUND_SIZE;
     
     // pesudo sequences to fill short oligos, because machine can only synthesis equal length oligos
     //const char *fork_sequence;
@@ -94,6 +97,7 @@ struct args args = {
     .n_min = 0,
     .max_oligo_length = 0,
     .n_max = 0,
+    .ROUND_SIZE = 100,
     .target_regions = 0,
     .design_regions = 0,
     //.uniq_data_tbx = 0,
@@ -180,6 +184,8 @@ int usage()
 	    "            oligo depths pre base, increase this value will increase the dense of oligos.\n"
 	    "  -p, -project [string]\n"
 	    "            project id\n"
+            "  -ROUND_SIZE [100]\n"
+            "            smallest limitation of a designed region. All small regions will round to this size.\n"
 	    "  -must_design\n"
 	    "            if no uniq regions around small target, must design it no matter repeat regions.\n"
 	    "  -h, -help\n"
@@ -205,6 +211,8 @@ int parse_args(int argc, char **argv)
     const char *depth = 0;
     const char *max_oligo_length = 0;
     const char *min_oligo_length = 0;
+    const char *round_size = 0;
+    
     for (i = 0; i < argc; ) {
 	const char *a = argv[i++];
 	if ( strcmp(a, "-h") == 0 || strcmp(a, "-help") == 0 )
@@ -235,7 +243,9 @@ int parse_args(int argc, char **argv)
         else if ( (strcmp(a, "-min") == 0) && min_oligo_length == NULL )
             var = &min_oligo_length;
         else if ( (strcmp(a, "-max") == 0 ) && max_oligo_length == NULL )
-            var = &max_oligo_length;                  
+            var = &max_oligo_length;
+        else if ( strcmp(a, "-ROUND_SIZE") == 0 )
+            var = &round_size;
 	
 	if ( var != 0 ) {
 	    if (i == argc) {
@@ -334,6 +344,11 @@ int parse_args(int argc, char **argv)
 	LOG_print("Use dynamic design mode, the length of oligos will set from %dnt to %dnt.", oligo_length_minimal, oligo_length_maxmal);
     }
 
+    if ( round_size ) {
+        args.ROUND_SIZE = str2int(round_size);
+        if ( args.ROUND_SIZE < args.min_oligo_length ) warnings("The ROUND SIZE smaller than minimal oligo length! Reset ROUND_SIZE to %d now.", args.min_oligo_length);
+    }
+             
     args.target_regions = bedaux_init();
 
     // assume input is 0 based bed file.
@@ -348,7 +363,7 @@ int parse_args(int argc, char **argv)
     // for some target regions, usually short than ROUND_SIZE, expand to ROUND_SIZE.
     // the reason we define the expand size to ROUND_SIZE is our oligo length usually smaller than ROUND_SIZE. so
     // for a single nucletide variantion, there should be at least two different oligos cover it at any depth.
-    bed_round(args.target_regions, ROUND_SIZE);
+    bed_round(args.target_regions, args.ROUND_SIZE);
 
     // merge two near regions
     struct bedaux *bed = bed_dup(args.target_regions);
